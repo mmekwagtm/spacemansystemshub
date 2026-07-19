@@ -1,0 +1,10 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      // Uploads and privileged media operations are issued by trusted backend code.
+      allow read, write: if false;
+    }
+  }
+}

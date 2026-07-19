@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Spaceman Driver",
+    "slug": "spaceman-driver",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "spaceman-driver",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

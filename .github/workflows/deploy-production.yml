@@ -1,0 +1,56 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type deploy-production after all release acceptance checks have passed.
+        required: true
+        type: string
+      deploy_mobile_builds:
+        description: Queue Expo production builds after backend/web deployment.
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Approved production deploy
+    if: inputs.confirmation == 'deploy-production'
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm validate
+      - name: Deploy Rules, Functions, and Hosting to production
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        run: >-
+          pnpm dlx firebase-tools@14.10.0 deploy --non-interactive --project "$FIREBASE_PROJECT_ID"
+          --token "$FIREBASE_TOKEN"
+          --only firestore:rules,storage,functions,hosting:admin-web,hosting:merchant-web,hosting:customer-web
+      - name: Queue customer production build
+        if: inputs.deploy_mobile_builds
+        working-directory: apps/customer-app
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: pnpm dlx eas-cli@16.0.0 build --platform all --profile production --non-interactive --no-wait
+      - name: Queue driver production build
+        if: inputs.deploy_mobile_builds
+        working-directory: apps/driver-app
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: pnpm dlx eas-cli@16.0.0 build --platform all --profile production --non-interactive --no-wait

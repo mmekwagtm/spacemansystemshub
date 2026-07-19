@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Spaceman Customer",
+    "slug": "spaceman-customer",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "spaceman-customer",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

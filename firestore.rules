@@ -1,0 +1,100 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function active() {
+      return signedIn() && request.auth.token.status == 'active';
+    }
+
+    function hasRole(role) {
+      return active() && request.auth.token.role == role;
+    }
+
+    function platformStaff() {
+      return hasRole('admin') || hasRole('super_admin');
+    }
+
+    function merchantFor(storeId) {
+      return hasRole('merchant')
+        && request.auth.token.storeIds is list
+        && request.auth.token.storeIds.hasAny([storeId]);
+    }
+
+    function assignedDriver(orderId) {
+      return hasRole('driver')
+        && exists(/databases/$(database)/documents/driverAssignments/$(orderId))
+        && get(/databases/$(database)/documents/driverAssignments/$(orderId)).data.driverId == request.auth.uid;
+    }
+
+    function canReadOrder(orderId, order) {
+      return active() && (
+        order.customerId == request.auth.uid
+        || merchantFor(order.storeId)
+        || assignedDriver(orderId)
+        || platformStaff()
+      );
+    }
+
+    function canReadDriverAssignment(assignment) {
+      return active() && (
+        assignment.driverId == request.auth.uid
+        || merchantFor(assignment.storeId)
+        || platformStaff()
+      );
+    }
+
+    match /users/{userId} {
+      allow get: if active() && (request.auth.uid == userId || platformStaff());
+      allow list: if platformStaff();
+      allow write: if false;
+    }
+
+    match /stores/{storeId} {
+      allow get, list: if resource.data.status == 'active' || platformStaff() || merchantFor(storeId);
+      allow write: if false;
+    }
+
+    match /items/{itemId} {
+      allow get, list: if resource.data.status == 'active' || platformStaff() || merchantFor(resource.data.storeId);
+      allow write: if false;
+    }
+
+    match /orders/{orderId} {
+      allow get, list: if canReadOrder(orderId, resource.data);
+      allow write: if false;
+    }
+
+    match /checkoutSessions/{checkoutId} {
+      allow get: if active() && resource.data.customerId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow get, list: if active() && resource.data.recipientId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /driverAssignments/{orderId} {
+      allow get, list: if canReadDriverAssignment(resource.data);
+      allow write: if false;
+    }
+
+    match /driverLocations/{orderId} {
+      allow get: if active() && (
+        resource.data.customerId == request.auth.uid
+        || merchantFor(resource.data.storeId)
+        || assignedDriver(orderId)
+        || platformStaff()
+      );
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
