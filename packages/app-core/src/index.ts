@@ -11,6 +11,15 @@ export const USER_STATUSES = [
 ] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 
+export const USER_STATUS_TRANSITIONS: Readonly<Record<UserStatus, readonly UserStatus[]>> = {
+  invited: ["pending_profile", "pending_approval", "active", "suspended", "archived"],
+  pending_profile: ["pending_approval", "active", "suspended", "archived"],
+  pending_approval: ["active", "suspended", "archived"],
+  active: ["suspended", "archived"],
+  suspended: ["active", "archived"],
+  archived: []
+};
+
 export const PAYMENT_STATUSES = [
   "uninitialized",
   "pending",
@@ -130,6 +139,14 @@ export function formatMoney(minorAmount: number, currency = "ZAR", locale = "en-
 
 export function isAppRole(value: string): value is AppRole {
   return APP_ROLES.includes(value as AppRole);
+}
+
+export function isUserStatus(value: string): value is UserStatus {
+  return USER_STATUSES.includes(value as UserStatus);
+}
+
+export function canTransitionUserStatus(from: UserStatus, to: UserStatus): boolean {
+  return USER_STATUS_TRANSITIONS[from].includes(to);
 }
 
 export function isTerminalFulfillmentStatus(status: FulfillmentStatus): boolean {

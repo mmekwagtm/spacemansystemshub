@@ -56,3 +56,22 @@ project owner runs the documented validation, Playwright, Expo Go, Maestro,
 Firebase integration, and release-acceptance steps manually, reviews the
 resulting diff, and creates commits manually. Production deployment remains
 blocked until the complete Phase 7 acceptance matrix is reviewed and approved.
+
+## AD-010: Canonical identity checks and callable ingress
+
+Development Functions and Firebase data are co-located in `africa-south1`.
+Every protected Function and Rule checks the canonical `users/{uid}` role and
+status in addition to token claims, so suspension or archive takes effect for
+already-issued tokens. Cloud Run's invoker IAM check is disabled only for the
+six HTTPS callable identity services; Firebase callable authentication and the
+server-side role/status/scope checks remain authoritative.
+
+## AD-011: Staged App Check rollout
+
+App Check enforcement remains off for all five development clients during
+Phase 2 manual acceptance. Web reCAPTCHA providers and native attestation are
+not yet registered, and Expo Go cannot provide the production Android
+attestation path. Enforcement may be staged only after provider registration,
+development-build/debug-token verification, metrics observation, and a tested
+rollback avoid locking out a client. Authentication, Rules, and Function
+authorization remain mandatory with or without App Check.

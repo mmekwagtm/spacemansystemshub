@@ -9,6 +9,7 @@ import {
   assertStoreScope,
   assertTrustedCommandAccess,
   assertUserManagementScope,
+  assertUserStatusTransition,
   decidePaystackWebhookAction
 } from "./index";
 
@@ -31,6 +32,12 @@ describe("trusted command policy", () => {
     expect(() => assertStoreScope("merchant", ["store-a"], "store-b")).toThrow();
     expect(() => assertUserManagementScope("admin", "admin")).toThrow();
     expect(() => assertUserManagementScope("super_admin", "admin")).not.toThrow();
+  });
+
+  it("rejects replayed and terminal user-status changes", () => {
+    expect(() => assertUserStatusTransition("invited", "active")).not.toThrow();
+    expect(() => assertUserStatusTransition("active", "active")).toThrow();
+    expect(() => assertUserStatusTransition("archived", "active")).toThrow();
   });
 
   it("creates a paid order once and treats a signed webhook retry as a replay", () => {

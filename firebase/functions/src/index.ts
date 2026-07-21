@@ -3,8 +3,10 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import {
   FULFILLMENT_STATUSES,
   isAppRole,
+  isUserStatus,
   type AppRole,
-  type FulfillmentStatus
+  type FulfillmentStatus,
+  type UserStatus
 } from "@spaceman/app-core";
 import { AppError } from "@spaceman/app-errors";
 import {
@@ -16,10 +18,12 @@ import {
   assertStoreScope,
   assertTrustedCommandAccess,
   assertUserManagementScope,
+  assertUserStatusTransition,
   decidePaystackWebhookAction
 } from "@spaceman/app-functions";
 import {
   archiveOrRedactAccountInputSchema,
+  bootstrapCustomerProfileInputSchema,
   createStaffUserInputSchema,
   createCheckoutSessionInputSchema,
   driverAssignmentInputSchema,
@@ -48,12 +52,17 @@ if (getApps().length === 0) {
 const database = getFirestore();
 const authentication = getAuth();
 const paystackSecret = defineSecret("PAYSTACK_SECRET_KEY");
-const functionRegion = process.env.SPACEMAN_FUNCTIONS_REGION ?? "us-central1";
+const functionRegion = process.env.SPACEMAN_FUNCTIONS_REGION ?? "africa-south1";
 
 type Actor = {
   uid: string;
   role: AppRole;
   storeIds: string[];
+};
+
+type SignedInActor = {
+  uid: string;
+  email: string;
 };
 
 type SafeParseResult<TOutput> =
@@ -72,22 +81,46 @@ function parseCallableInput<TOutput>(schema: SafeParseSchema<TOutput>, data: unk
   return parsed.data;
 }
 
-function requireActiveActor(request: { auth?: { uid: string; token: Record<string, unknown> } | null }): Actor {
+async function requireActiveActor(
+  request: { auth?: { uid: string; token: Record<string, unknown> } | null }
+): Promise<Actor> {
   if (request.auth === null || request.auth === undefined) {
     throw new HttpsError("unauthenticated", "Authentication is required.");
   }
 
-  const roleValue = request.auth.token.role;
-  const statusValue = request.auth.token.status;
-  if (typeof roleValue !== "string" || !isAppRole(roleValue) || statusValue !== "active") {
+  const profileSnapshot = await database.collection("users").doc(request.auth.uid).get();
+  if (!profileSnapshot.exists) {
+    throw new HttpsError("permission-denied", "An active platform profile is required.");
+  }
+  const profile = asRecord(profileSnapshot.data());
+  const role = asAppRole(profile.role);
+  const status = asUserStatus(profile.status);
+  if (status !== "active") {
     throw new HttpsError("permission-denied", "An active platform role is required.");
   }
+  if (role === "customer" && request.auth.token.email_verified !== true) {
+    throw new HttpsError("permission-denied", "Customer email verification is required.");
+  }
 
-  const storeIds = Array.isArray(request.auth.token.storeIds)
-    ? request.auth.token.storeIds.filter((value): value is string => typeof value === "string")
+  const scope = asRecord(profile.scope);
+  const storeIds = Array.isArray(scope.storeIds)
+    ? scope.storeIds.filter((value): value is string => typeof value === "string")
     : [];
 
-  return { uid: request.auth.uid, role: roleValue, storeIds };
+  return { uid: request.auth.uid, role, storeIds };
+}
+
+function requireSignedInActor(
+  request: { auth?: { uid: string; token: Record<string, unknown> } | null }
+): SignedInActor {
+  if (request.auth === null || request.auth === undefined) {
+    throw new HttpsError("unauthenticated", "Authentication is required.");
+  }
+  const email = request.auth.token.email;
+  if (typeof email !== "string" || email.length === 0) {
+    throw new HttpsError("failed-precondition", "The authenticated account has no email address.");
+  }
+  return { uid: request.auth.uid, email: email.trim().toLowerCase() };
 }
 
 function requireTrustedCommand(actor: Actor, command: Parameters<typeof assertTrustedCommandAccess>[0]): void {
@@ -111,6 +144,13 @@ function asFulfillmentStatus(value: unknown): FulfillmentStatus {
 function asAppRole(value: unknown): AppRole {
   if (typeof value !== "string" || !isAppRole(value)) {
     throw new HttpsError("failed-precondition", "The user profile has an invalid role.");
+  }
+  return value;
+}
+
+function asUserStatus(value: unknown): UserStatus {
+  if (typeof value !== "string" || !isUserStatus(value)) {
+    throw new HttpsError("failed-precondition", "The user profile has an invalid status.");
   }
   return value;
 }
@@ -153,12 +193,15 @@ function claimsForProfile(
   status: string,
   scope: { storeIds?: unknown; deliveryZoneIds?: unknown; regionIds?: unknown }
 ): Record<string, unknown> {
+  const strings = (value: unknown): string[] => Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
   return {
     role,
     status,
-    storeIds: Array.isArray(scope.storeIds) ? scope.storeIds : [],
-    deliveryZoneIds: Array.isArray(scope.deliveryZoneIds) ? scope.deliveryZoneIds : [],
-    regionIds: Array.isArray(scope.regionIds) ? scope.regionIds : []
+    storeIds: strings(scope.storeIds),
+    deliveryZoneIds: strings(scope.deliveryZoneIds),
+    regionIds: strings(scope.regionIds)
   };
 }
 
@@ -168,8 +211,8 @@ function ensureDevelopmentEnvironment(): void {
   }
 }
 
-export const healthcheck = onCall({ region: functionRegion }, (request) => {
-  const actor = requireActiveActor(request);
+export const healthcheck = onCall({ region: functionRegion }, async (request) => {
+  const actor = await requireActiveActor(request);
   return {
     actorRole: actor.role,
     environment: process.env.SPACEMAN_ENVIRONMENT ?? "unconfigured",
@@ -177,8 +220,86 @@ export const healthcheck = onCall({ region: functionRegion }, (request) => {
   };
 });
 
+export const registerCustomerProfile = onCall({ region: functionRegion }, async (request) => {
+  const actor = requireSignedInActor(request);
+  const input = parseCallableInput(bootstrapCustomerProfileInputSchema, request.data);
+  const profileReference = database.collection("users").doc(actor.uid);
+  const auditReference = database.collection("auditLogs").doc();
+
+  await database.runTransaction(async (transaction) => {
+    const existingSnapshot = await transaction.get(profileReference);
+    if (existingSnapshot.exists) {
+      const existing = asRecord(existingSnapshot.data());
+      if (existing.role !== "customer" || existing.email !== actor.email) {
+        throw new HttpsError("already-exists", "This account already has a different platform profile.");
+      }
+      return;
+    }
+
+    const profile = {
+      id: actor.uid,
+      email: actor.email,
+      displayName: input.displayName,
+      role: "customer",
+      status: "active",
+      scope: { storeIds: [], deliveryZoneIds: [], regionIds: [] },
+      ...(input.phoneE164 === undefined ? {} : { phoneE164: input.phoneE164 }),
+      schemaVersion: 1,
+      createdAt: FieldValue.serverTimestamp(),
+      createdBy: actor.uid,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: actor.uid
+    };
+    transaction.create(profileReference, profile);
+    transaction.create(auditReference, {
+      id: auditReference.id,
+      actorId: actor.uid,
+      actorRole: "customer",
+      action: "customer_registered",
+      targetType: "user",
+      targetId: actor.uid,
+      createdAt: FieldValue.serverTimestamp(),
+      createdBy: actor.uid,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: actor.uid
+    });
+  });
+
+  const account = await authentication.getUser(actor.uid);
+  await authentication.setCustomUserClaims(actor.uid, {
+    ...(account.customClaims ?? {}),
+    ...claimsForProfile("customer", "active", {
+      storeIds: [],
+      deliveryZoneIds: [],
+      regionIds: []
+    })
+  });
+  return { id: actor.uid, acceptedAt: new Date().toISOString() };
+});
+
+export const syncMyClaims = onCall({ region: functionRegion }, async (request) => {
+  const actor = requireSignedInActor(request);
+  const profileSnapshot = await database.collection("users").doc(actor.uid).get();
+  if (!profileSnapshot.exists) {
+    throw new HttpsError("not-found", "The user profile does not exist.");
+  }
+  const profile = asRecord(profileSnapshot.data());
+  if (profile.email !== actor.email) {
+    throw new HttpsError("failed-precondition", "The account email does not match its platform profile.");
+  }
+  const role = asAppRole(profile.role);
+  const status = asUserStatus(profile.status);
+  const scope = asRecord(profile.scope);
+  const account = await authentication.getUser(actor.uid);
+  await authentication.setCustomUserClaims(actor.uid, {
+    ...(account.customClaims ?? {}),
+    ...claimsForProfile(role, status, scope)
+  });
+  return { id: actor.uid, acceptedAt: new Date().toISOString() };
+});
+
 export const createStaffUser = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "createStaffUser");
   const input = parseCallableInput(createStaffUserInputSchema, request.data);
   const account = await authentication.createUser({
@@ -193,7 +314,9 @@ export const createStaffUser = onCall({ region: functionRegion }, async (request
       account.uid,
       claimsForProfile(input.role, "invited", input.scope)
     );
-    await profileReference.create({
+    const auditReference = database.collection("auditLogs").doc();
+    const batch = database.batch();
+    batch.create(profileReference, {
       id: account.uid,
       email: input.email,
       displayName: input.displayName,
@@ -201,11 +324,26 @@ export const createStaffUser = onCall({ region: functionRegion }, async (request
       status: "invited",
       scope: input.scope,
       ...(input.phoneE164 === undefined ? {} : { phoneE164: input.phoneE164 }),
+      schemaVersion: 1,
       createdAt: FieldValue.serverTimestamp(),
       createdBy: actor.uid,
       updatedAt: FieldValue.serverTimestamp(),
       updatedBy: actor.uid
     });
+    batch.create(auditReference, {
+      id: auditReference.id,
+      actorId: actor.uid,
+      actorRole: actor.role,
+      action: "staff_user_invited",
+      targetType: "user",
+      targetId: account.uid,
+      detail: { role: input.role },
+      createdAt: FieldValue.serverTimestamp(),
+      createdBy: actor.uid,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: actor.uid
+    });
+    await batch.commit();
   } catch {
     await authentication.deleteUser(account.uid).catch(() => undefined);
     logger.error("Staff account provisioning failed", { actorId: actor.uid, staffUserId: account.uid });
@@ -216,7 +354,7 @@ export const createStaffUser = onCall({ region: functionRegion }, async (request
 });
 
 export const updateUserStatus = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "updateUserStatus");
   const input = parseCallableInput(updateUserStatusInputSchema, request.data);
   const profileReference = database.collection("users").doc(input.userId);
@@ -227,18 +365,43 @@ export const updateUserStatus = onCall({ region: functionRegion }, async (reques
 
   const profile = asRecord(profileSnapshot.data());
   const targetRole = asAppRole(profile.role);
+  const currentStatus = asUserStatus(profile.status);
   assertUserManagement(actor, targetRole);
+  try {
+    assertUserStatusTransition(currentStatus, input.status);
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw new HttpsError("failed-precondition", error.userMessage);
+    }
+    throw error;
+  }
   const scope = asRecord(profile.scope);
   const account = await authentication.getUser(input.userId);
   const disabled = input.status === "suspended" || input.status === "archived";
 
-  await Promise.all([
-    profileReference.update({
+  const auditReference = database.collection("auditLogs").doc();
+  const batch = database.batch();
+  batch.update(profileReference, {
       status: input.status,
       ...(input.status === "archived" ? { archivedAt: FieldValue.serverTimestamp() } : {}),
       updatedAt: FieldValue.serverTimestamp(),
       updatedBy: actor.uid
-    }),
+  });
+  batch.create(auditReference, {
+    id: auditReference.id,
+    actorId: actor.uid,
+    actorRole: actor.role,
+    action: "user_status_updated",
+    targetType: "user",
+    targetId: input.userId,
+    detail: { status: input.status },
+    createdAt: FieldValue.serverTimestamp(),
+    createdBy: actor.uid,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid
+  });
+  await batch.commit();
+  await Promise.all([
     authentication.updateUser(input.userId, { disabled }),
     authentication.setCustomUserClaims(input.userId, {
       ...(account.customClaims ?? {}),
@@ -250,7 +413,7 @@ export const updateUserStatus = onCall({ region: functionRegion }, async (reques
 });
 
 export const updateUserScope = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "updateUserScope");
   const input = parseCallableInput(updateUserScopeInputSchema, request.data);
   const profileReference = database.collection("users").doc(input.userId);
@@ -265,12 +428,27 @@ export const updateUserScope = onCall({ region: functionRegion }, async (request
   const status = typeof profile.status === "string" ? profile.status : "pending_profile";
   const account = await authentication.getUser(input.userId);
 
-  await Promise.all([
-    profileReference.update({
+  const auditReference = database.collection("auditLogs").doc();
+  const batch = database.batch();
+  batch.update(profileReference, {
       scope: input.scope,
       updatedAt: FieldValue.serverTimestamp(),
       updatedBy: actor.uid
-    }),
+  });
+  batch.create(auditReference, {
+    id: auditReference.id,
+    actorId: actor.uid,
+    actorRole: actor.role,
+    action: "user_scope_updated",
+    targetType: "user",
+    targetId: input.userId,
+    createdAt: FieldValue.serverTimestamp(),
+    createdBy: actor.uid,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid
+  });
+  await batch.commit();
+  await Promise.all([
     authentication.setCustomUserClaims(input.userId, {
       ...(account.customClaims ?? {}),
       ...claimsForProfile(targetRole, status, input.scope)
@@ -280,8 +458,8 @@ export const updateUserScope = onCall({ region: functionRegion }, async (request
   return { id: input.userId, acceptedAt: new Date().toISOString() };
 });
 
-export const createCheckoutSession = onCall({ region: functionRegion }, (request) => {
-  const actor = requireActiveActor(request);
+export const createCheckoutSession = onCall({ region: functionRegion }, async (request) => {
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "createCheckoutSession");
   parseCallableInput(createCheckoutSessionInputSchema, request.data);
 
@@ -294,7 +472,7 @@ export const createCheckoutSession = onCall({ region: functionRegion }, (request
 });
 
 export const upsertStore = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "upsertStore");
   const input = parseCallableInput(upsertStoreInputSchema, request.data);
   const storeReference = input.storeId === undefined
@@ -358,7 +536,7 @@ export const upsertStore = onCall({ region: functionRegion }, async (request) =>
 });
 
 export const upsertItem = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "upsertItem");
   const input = parseCallableInput(upsertItemInputSchema, request.data);
   const storeSnapshot = await database.collection("stores").doc(input.storeId).get();
@@ -414,7 +592,7 @@ export const upsertItem = onCall({ region: functionRegion }, async (request) => 
 });
 
 export const retireCatalogItem = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "retireCatalogItem");
   const input = parseCallableInput(retireCatalogItemInputSchema, request.data);
   const itemReference = database.collection("items").doc(input.itemId);
@@ -450,7 +628,7 @@ export const retireCatalogItem = onCall({ region: functionRegion }, async (reque
 });
 
 export const transitionMerchantFulfillment = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "transitionMerchantFulfillment");
   const input = parseCallableInput(fulfillmentTransitionInputSchema, request.data);
   const orderReference = database.collection("orders").doc(input.orderId);
@@ -504,7 +682,7 @@ export const transitionMerchantFulfillment = onCall({ region: functionRegion }, 
 });
 
 export const assignDriver = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "assignDriver");
   const input = parseCallableInput(driverAssignmentInputSchema, request.data);
   const orderReference = database.collection("orders").doc(input.orderId);
@@ -573,7 +751,7 @@ export const assignDriver = onCall({ region: functionRegion }, async (request) =
 });
 
 export const updateDriverLocation = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "updateDriverLocation");
   const input = parseCallableInput(driverLocationInputSchema, request.data);
   const orderReference = database.collection("orders").doc(input.orderId);
@@ -621,7 +799,7 @@ export const updateDriverLocation = onCall({ region: functionRegion }, async (re
 });
 
 export const requestRefund = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "requestRefund");
   const input = parseCallableInput(refundRequestInputSchema, request.data);
   const orderReference = database.collection("orders").doc(input.orderId);
@@ -707,7 +885,7 @@ export const requestRefund = onCall({ region: functionRegion }, async (request) 
 });
 
 export const archiveOrRedactAccount = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "archiveOrRedactAccount");
   const input = parseCallableInput(archiveOrRedactAccountInputSchema, request.data);
   try {
@@ -791,7 +969,7 @@ export const archiveOrRedactAccount = onCall({ region: functionRegion }, async (
 });
 
 export const seedTestFixtures = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "seedTestFixtures");
   ensureDevelopmentEnvironment();
   const input = parseCallableInput(testFixtureMutationInputSchema, request.data);
@@ -819,7 +997,7 @@ export const seedTestFixtures = onCall({ region: functionRegion }, async (reques
 });
 
 export const cleanupTestFixtures = onCall({ region: functionRegion }, async (request) => {
-  const actor = requireActiveActor(request);
+  const actor = await requireActiveActor(request);
   requireTrustedCommand(actor, "cleanupTestFixtures");
   ensureDevelopmentEnvironment();
   const input = parseCallableInput(testFixtureMutationInputSchema, request.data);

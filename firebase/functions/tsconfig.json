@@ -1,6 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "paths": {
+      "@spaceman/app-core": ["../../packages/app-core/src/index.ts"],
+      "@spaceman/app-errors": ["../../packages/app-errors/src/index.ts"],
+      "@spaceman/app-functions": ["../../packages/app-functions/src/index.ts"],
+      "@spaceman/app-validation": ["../../packages/app-validation/src/index.ts"]
+    },
     "types": ["node"]
   },
   "include": ["src/**/*.ts"]

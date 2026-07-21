@@ -31,8 +31,8 @@ state groups:
 Money uses integer minor units and server timestamps are authoritative. Every
 mutable source-model document carries `createdAt`, `createdBy`, `updatedAt`,
 and `updatedBy`; disposable development records additionally carry
-`testRunId`. A document-level `schemaVersion` is not part of the current source
-contract and must not be assumed.
+`testRunId`. Identity profiles use `schemaVersion: 1`; other collections must
+not assume a schema version until their owning phase defines one.
 
 ## Ownership
 
@@ -41,3 +41,12 @@ notifications. Merchants are limited to assigned stores. Drivers are limited to
 assigned/eligible delivery projections. Admin access is explicit and audited;
 `super_admin` controls critical role and platform-setting changes. Payment,
 refund, role, assignment, and protected lifecycle fields are Function-only.
+
+## Identity projection
+
+`users/{uid}` is canonical for email, role, status, scope, profile fields, and
+identity audit metadata. Firebase custom claims mirror role, status,
+`storeIds`, `deliveryZoneIds`, and `regionIds` for coarse routing, but a stale
+claim never overrides the canonical profile. Customer profiles are created by
+`registerCustomerProfile`; staff profiles are created by `createStaffUser`.
+Clients have no direct write access to `users`.

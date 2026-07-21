@@ -21,5 +21,7 @@ blob-report/
 apps/*/android/
 apps/*/ios/
 apps/*/expo-env.d.ts
+apps/*/google-services.json
+apps/*/GoogleService-Info.plist
 *.keystore
 *.mobileprovision

@@ -6,6 +6,10 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "spaceman-customer",
+    "android": {
+      "package": "com.customer.app",
+      "googleServicesFile": "./google-services.json"
+    },
     "plugins": ["expo-router"],
     "experiments": {
       "typedRoutes": true

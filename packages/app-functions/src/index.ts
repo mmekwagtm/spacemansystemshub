@@ -1,9 +1,11 @@
-import { APP_ROLES, canTransitionFulfillment } from "@spaceman/app-core";
-import type { AppRole, FulfillmentStatus } from "@spaceman/app-core";
+import { APP_ROLES, canTransitionFulfillment, canTransitionUserStatus } from "@spaceman/app-core";
+import type { AppRole, FulfillmentStatus, UserStatus } from "@spaceman/app-core";
 import { AppError } from "@spaceman/app-errors";
 import { testRunIdSchema } from "@spaceman/app-validation";
 
 export const TRUSTED_COMMANDS = [
+  "registerCustomerProfile",
+  "syncMyClaims",
   "createStaffUser",
   "updateUserStatus",
   "updateUserScope",
@@ -25,6 +27,8 @@ export const TRUSTED_COMMANDS = [
 export type TrustedCommand = (typeof TRUSTED_COMMANDS)[number];
 
 const commandRoles: Readonly<Record<TrustedCommand, readonly AppRole[]>> = {
+  registerCustomerProfile: ["customer"],
+  syncMyClaims: APP_ROLES,
   createStaffUser: ["super_admin"],
   updateUserStatus: ["admin", "super_admin"],
   updateUserScope: ["admin", "super_admin"],
@@ -121,6 +125,17 @@ export function assertUserManagementScope(actorRole: AppRole, targetRole: AppRol
       source: "app-functions/user-management",
       message: `Role ${actorRole} cannot manage a ${targetRole} account.`,
       userMessage: "You do not have permission to manage that account."
+    });
+  }
+}
+
+export function assertUserStatusTransition(from: UserStatus, to: UserStatus): void {
+  if (!canTransitionUserStatus(from, to)) {
+    throw new AppError({
+      code: "precondition_failed",
+      source: "app-functions/user-status-transition",
+      message: `User status cannot transition from ${from} to ${to}.`,
+      userMessage: "That account status change is not allowed. Refresh and try again."
     });
   }
 }

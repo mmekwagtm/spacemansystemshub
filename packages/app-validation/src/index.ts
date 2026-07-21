@@ -47,9 +47,21 @@ export const staffRoleSchema = z.enum(["merchant", "driver", "admin"]);
 export const storeStatusSchema = z.enum(["draft", "active", "suspended", "archived"]);
 export const itemStatusSchema = z.enum(["draft", "active", "hidden", "archived"]);
 export const phoneE164Schema = z.string().regex(/^\+[1-9]\d{6,14}$/);
+export const emailAddressSchema = z.string().trim().email().max(320).transform((value) => value.toLowerCase());
+export const passwordSchema = z.string().min(8).max(128);
+
+export const bootstrapCustomerProfileInputSchema = z.object({
+  displayName: z.string().trim().min(1).max(120),
+  phoneE164: phoneE164Schema.optional()
+});
+
+export const customerRegistrationInputSchema = bootstrapCustomerProfileInputSchema.extend({
+  email: emailAddressSchema,
+  password: passwordSchema
+});
 
 export const createStaffUserInputSchema = z.object({
-  email: z.string().trim().email().max(320),
+  email: emailAddressSchema,
   displayName: z.string().trim().min(1).max(120),
   role: staffRoleSchema,
   scope: roleScopeSchema,

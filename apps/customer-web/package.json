@@ -11,9 +11,13 @@
     "typecheck": "tsc -p tsconfig.app.json --noEmit"
   },
   "dependencies": {
+    "@spaceman/app-config": "workspace:*",
     "@spaceman/app-core": "workspace:*",
+    "@spaceman/app-errors": "workspace:*",
+    "@spaceman/app-firebase": "workspace:*",
     "@spaceman/app-maps": "workspace:*",
     "@spaceman/app-services": "workspace:*",
+    "@spaceman/app-types": "workspace:*",
     "@spaceman/app-ui": "workspace:*",
     "@spaceman/shared": "workspace:*",
     "react": "19.2.3",

@@ -10,14 +10,12 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --target node22 --out-dir lib --clean --external firebase-admin --external firebase-functions",
     "lint": "eslint src --max-warnings 0",
+    "bootstrap:super-admin": "node scripts/bootstrap-super-admin.mjs",
     "test": "vitest run",
+    "test:identity:live": "node scripts/live-identity.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@spaceman/app-core": "workspace:*",
-    "@spaceman/app-errors": "workspace:*",
-    "@spaceman/app-functions": "workspace:*",
-    "@spaceman/app-validation": "workspace:*",
     "firebase-admin": "^13.0.0",
     "firebase-functions": "^6.0.0"
   },

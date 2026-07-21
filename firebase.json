@@ -10,7 +10,7 @@
         "firebase-debug.*.log",
         "*.local"
       ],
-      "predeploy": ["pnpm --dir firebase/functions run build"]
+      "predeploy": ["corepack pnpm --dir firebase/functions run build"]
     }
   ],
   "firestore": {

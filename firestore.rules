@@ -7,7 +7,15 @@ service cloud.firestore {
     }
 
     function active() {
-      return signedIn() && request.auth.token.status == 'active';
+      return signedIn()
+        && request.auth.token.status == 'active'
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == request.auth.token.role
+        && (
+          request.auth.token.role != 'customer'
+          || request.auth.token.email_verified == true
+        );
     }
 
     function hasRole(role) {
@@ -48,7 +56,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow get: if active() && (request.auth.uid == userId || platformStaff());
+      allow get: if (signedIn() && request.auth.uid == userId) || platformStaff();
       allow list: if platformStaff();
       allow write: if false;
     }

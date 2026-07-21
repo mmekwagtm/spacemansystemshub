@@ -51,6 +51,31 @@ export interface UserProfile extends DocumentMetadata {
   archivedAt?: string;
 }
 
+export interface IdentityClaims extends RoleScope {
+  role: AppRole;
+  status: UserStatus;
+}
+
+export interface IdentitySession {
+  uid: string;
+  email: string;
+  emailVerified: boolean;
+  claims: IdentityClaims | null;
+  profile: UserProfile | null;
+}
+
+export interface CustomerRegistrationInput {
+  email: string;
+  password: string;
+  displayName: string;
+  phoneE164?: string;
+}
+
+export interface BootstrapCustomerProfileInput {
+  displayName: string;
+  phoneE164?: string;
+}
+
 export type StoreStatus = "draft" | "active" | "suspended" | "archived";
 export type ItemStatus = "draft" | "active" | "hidden" | "archived";
 

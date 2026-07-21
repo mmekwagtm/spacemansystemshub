@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createCheckoutSessionInputSchema, testFixtureMutationInputSchema } from "./index";
+import {
+  createCheckoutSessionInputSchema,
+  customerRegistrationInputSchema,
+  testFixtureMutationInputSchema
+} from "./index";
 
 describe("command validation", () => {
   it("accepts a bounded checkout request", () => {
@@ -19,5 +23,19 @@ describe("command validation", () => {
 
   it("rejects fixture cleanup without a scoped test run", () => {
     expect(() => testFixtureMutationInputSchema.parse({ testRunId: "short" })).toThrow();
+  });
+
+  it("normalizes valid customer registration and rejects a weak password", () => {
+    expect(customerRegistrationInputSchema.parse({
+      email: " Customer@Example.com ",
+      password: "correct-horse",
+      displayName: "Customer"
+    }).email).toBe("customer@example.com");
+
+    expect(() => customerRegistrationInputSchema.parse({
+      email: "customer@example.com",
+      password: "short",
+      displayName: "Customer"
+    })).toThrow();
   });
 });

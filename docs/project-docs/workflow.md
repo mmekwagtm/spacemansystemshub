@@ -18,6 +18,11 @@ compatibility before clients that depend on it. Run the documented validation
 and live-test gates manually before every deployment; production additionally
 requires an explicit production acceptance review and approval.
 
+Development releases must name the exact Rules or Functions being changed.
+Keep CLI debug logging disabled around secrets. After a live test, verify its
+exact `testRunId` is absent from both Firestore and Firebase Auth before using
+the result as evidence.
+
 ## Sensitive-write workflow
 
 All role/status/scope, payment, refund, order transition, assignment, location,
@@ -38,3 +43,6 @@ corepack pnpm test
 corepack pnpm build
 corepack pnpm test:web:e2e
 ```
+
+The identity-specific development-project command and all required environment
+guards are documented in `docs/project-docs/live-test-steps.md`.

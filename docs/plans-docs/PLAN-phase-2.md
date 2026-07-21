@@ -112,14 +112,31 @@ from `docs/project-docs/live-test-steps.md`. Do not use emulators or production.
 
 ## Phase 2 exit checklist
 
-- [ ] One canonical role/status/scope/claim contract is used everywhere.
-- [ ] Customer guest and authenticated flows work on web and native.
-- [ ] Merchant, driver, admin, and super-admin routes enforce active role/scope.
-- [ ] Trusted provisioning/claim/status commands pass live development tests.
-- [ ] Cross-role, ownership, immutable-field, and inactive-user denials pass.
-- [ ] App Check rollout decision and non-lockout evidence are documented.
-- [ ] Tagged fixtures are removed only by exact privileged cleanup.
+- [x] One canonical role/status/scope/claim contract is used everywhere.
+- [x] Customer guest and authenticated flows compile, test, and export on web and native.
+- [x] Merchant, driver, admin, and super-admin routes enforce active role/scope.
+- [x] Trusted provisioning/claim/status commands pass live development tests.
+- [x] Cross-role, ownership, immutable-field, scoped, and inactive-user denials pass.
+- [x] App Check rollout decision and non-lockout evidence are documented.
+- [x] Tagged fixtures are removed only by exact privileged cleanup.
 - [ ] Manual validation, Playwright, native tests, and five-app smoke tests pass.
-- [ ] Documentation and roadmap evidence match the live checkout.
+- [x] Documentation and roadmap evidence match the live checkout.
 
 Phase 3 may not begin until every checklist item is complete.
+
+## Execution status: 90%
+
+Source, development-cloud deployment, package validation, web builds,
+Playwright, native Jest/type-check/export, and the self-cleaning real-Firebase
+security matrix passed on 2026-07-21. Test run
+`phase2_identity_1784610317153_749c82ef` verified customer bootstrap and
+verification, trusted staff invitation/scope/activation, protected-field and
+cross-role/user/store/driver denial, replay denial, immediate suspended and
+archived stale-token denial, Storage denial, and zero tagged/Auth residue.
+
+The unchecked item is intentionally narrow: the owner must exercise the
+current Phase 2 UI on all five clients, including real inbox verification and
+password setup plus session restoration. Earlier owner evidence proves the two
+Expo shells rendered before the identity UI was added, so it cannot close this
+new gate. Use `docs/project-docs/live-test-steps.md` and attach the resulting
+evidence before marking Phase 2 complete.

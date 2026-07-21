@@ -14,7 +14,7 @@
     "lint": "pnpm -r --if-present run lint",
     "test": "pnpm -r --if-present run test",
     "test:native:e2e": "maestro test .maestro",
-    "test:web:e2e": "playwright test",
+    "test:web:e2e": "corepack pnpm --filter @spaceman/admin-web build && corepack pnpm --filter @spaceman/merchant-web build && corepack pnpm --filter @spaceman/customer-web build && playwright test",
     "typecheck": "pnpm -r --if-present run typecheck",
     "validate": "pnpm docs:check && pnpm typecheck && pnpm lint && pnpm test && pnpm build"
   },

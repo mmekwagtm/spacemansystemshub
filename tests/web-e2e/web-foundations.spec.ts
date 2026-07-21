@@ -1,26 +1,21 @@
 import { expect, test } from "@playwright/test";
 
-const webFoundations = [
-  {
-    name: "admin web",
-    url: "http://127.0.0.1:4173",
-    heading: "Operations foundation"
-  },
-  {
-    name: "merchant web",
-    url: "http://127.0.0.1:4174",
-    heading: "Merchant operations foundation"
-  },
-  {
-    name: "customer web",
-    url: "http://127.0.0.1:4175",
-    heading: "Marketplace foundation"
-  }
-] as const;
+test("admin web exposes invitation-only identity", async ({ page }) => {
+  await page.goto("http://127.0.0.1:4173", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Admin sign in" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send secure setup link" })).toBeVisible();
+});
 
-for (const app of webFoundations) {
-  test(`${app.name} exposes its foundation`, async ({ page }) => {
-    await page.goto(app.url, { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: app.heading })).toBeVisible();
-  });
-}
+test("merchant web exposes invitation-only identity", async ({ page }) => {
+  await page.goto("http://127.0.0.1:4174", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Merchant sign in" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send secure setup link" })).toBeVisible();
+});
+
+test("customer web keeps browse public and guards checkout", async ({ page }) => {
+  await page.goto("http://127.0.0.1:4175", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Marketplace foundation" })).toBeVisible();
+  await page.getByRole("button", { name: "Continue to checkout" }).click();
+  await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Create customer account" })).toBeVisible();
+});

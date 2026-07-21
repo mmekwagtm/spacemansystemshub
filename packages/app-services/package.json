@@ -16,8 +16,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@spaceman/app-errors": "workspace:*",
     "@spaceman/app-firebase": "workspace:*",
     "@spaceman/app-types": "workspace:*",
-    "@spaceman/app-validation": "workspace:*"
+    "@spaceman/app-validation": "workspace:*",
+    "@spaceman/shared": "workspace:*"
   }
 }

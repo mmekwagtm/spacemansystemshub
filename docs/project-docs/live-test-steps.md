@@ -1,21 +1,47 @@
 # Manual five-app live-test runbook
 
 This runbook applies to the canonical checkout at
-`/home/mmekwa/Desktop/projects/spacemansystems`.
+`/home/mmekwa/Desktop/projects/spacemansystems` and the real
+`spacemansystemsbackend` **development** Firebase project. Do not use emulators
+or production. Every command below states its working directory.
 
-The repository uses Node.js 22, Corepack, and pnpm 10.13.1. Testing, review,
-commits, and deployments are manual. No repository-hosted automation workflow
-is required or expected.
+Never print or commit `.env.local`, `google-services.json`, provider secrets,
+service accounts, access tokens, Firebase config contents, or generated test
+accounts. Testing, review, commits, and pushes are manual.
 
-All five applications share the real Firebase development project selected by
-the `development` alias. Do not use Firebase emulators and never point these
-steps at production. Do not print or commit `.env.local`, provider secrets,
-service-account files, access tokens, or generated test data.
+## 0. Required security action before payment work
 
-The shell smoke tests prove that the five applications start and render. They
-do not prove authentication, Maps quoting, Paystack payment, fulfillment,
-notifications, or production readiness until the corresponding phase exit
-gate is executed against the development project.
+The original Paystack test secret appeared in diagnostic output during Phase 2
+setup. Before any Phase 4 payment test:
+
+1. In the Paystack Dashboard, rotate the **test-mode** secret key. Do not reuse
+   the value currently stored in `docs/paystack-test`.
+2. Store the new value interactively. Run from
+   `/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+env -u DEBUG corepack pnpm exec firebase functions:secrets:set PAYSTACK_SECRET_KEY --project spacemansystemsbackend
+```
+
+Paste the rotated value only at the hidden prompt. Do not put it on the command
+line.
+
+3. Confirm that a new enabled version exists. Run from
+   `/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+gcloud secrets versions list PAYSTACK_SECRET_KEY --project=spacemansystemsbackend --format='table(name,state,createTime)'
+```
+
+4. After the new version is enabled, disable exposed version `1`. Run from
+   `/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+gcloud secrets versions disable 1 --secret=PAYSTACK_SECRET_KEY --project=spacemansystemsbackend
+```
+
+No Paystack payment Function is part of Phase 2, so do not deploy payment code
+after this rotation.
 
 ## 1. Inspect the checkout
 
@@ -28,24 +54,26 @@ git branch --show-current
 git diff --check
 ```
 
-Preserve every unrelated modification. Do not use reset, checkout, clean, or
-force-push as a troubleshooting shortcut.
+The Phase 2 checkout intentionally contains source/docs/package changes plus
+staged deletions for the two formerly tracked native Firebase config files.
+The ignored files themselves must remain on disk. Preserve any unrelated
+modification; do not use reset, checkout, clean, or force-push as a shortcut.
 
-## 2. Verify the toolchain
+## 2. Verify the toolchain and dependency state
 
 Run from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
 node --version
 corepack pnpm --version
-firebase --version
+corepack pnpm exec firebase --version
+gcloud --version
 java -version
 ```
 
-Node must satisfy `>=22.13.0`; pnpm must use the version declared in the root
-`package.json`. Java is needed only for Maestro/native tooling.
+Node must satisfy `>=22.13.0`; pnpm must match the root `package.json`.
 
-If dependencies need to be synchronized, run from
+Synchronize an existing checkout from
 `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
@@ -54,24 +82,24 @@ corepack pnpm --filter @spaceman/customer-app exec expo install --check
 corepack pnpm --filter @spaceman/driver-app exec expo install --check
 ```
 
-Use `corepack pnpm prune` to remove stale project dependency contexts. Do not
-delete individual entries inside `node_modules/.pnpm` manually.
+Do not run npm/yarn or manually alter `node_modules/.pnpm`.
 
-## 3. Verify the development Firebase target safely
+## 3. Verify the development Firebase target
 
 Run from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
-firebase use
-firebase projects:list
+corepack pnpm exec firebase use
+corepack pnpm exec firebase projects:list
 gcloud config get-value project
+corepack pnpm exec firebase functions:list --project spacemansystemsbackend
 ```
 
-The intended development project is `spacemansystemsbackend`. Stop if any
-command identifies production or another unexpected project.
+Stop if any command selects production or an unexpected project. The six Phase
+2 Functions must be listed in `africa-south1`.
 
-Verify that all five local environment files exist and remain ignored without
-printing their values. Run from `/home/mmekwa/Desktop/projects/spacemansystems`:
+Verify ignored local inputs without printing them. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
 test -s apps/admin-web/.env.local
@@ -79,10 +107,28 @@ test -s apps/merchant-web/.env.local
 test -s apps/customer-web/.env.local
 test -s apps/customer-app/.env.local
 test -s apps/driver-app/.env.local
-git check-ignore apps/admin-web/.env.local apps/merchant-web/.env.local apps/customer-web/.env.local apps/customer-app/.env.local apps/driver-app/.env.local
+test -s apps/customer-app/google-services.json
+test -s apps/driver-app/google-services.json
+git check-ignore apps/admin-web/.env.local apps/merchant-web/.env.local apps/customer-web/.env.local apps/customer-app/.env.local apps/driver-app/.env.local apps/customer-app/google-services.json apps/driver-app/google-services.json
 ```
 
-## 4. Run the manual source-quality gate
+Only if a native file is missing, restore Customer App from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+env -u DEBUG corepack pnpm exec firebase apps:sdkconfig ANDROID 1:421320726419:android:77598e1763016ad87eba66 --project spacemansystemsbackend -o apps/customer-app/google-services.json
+```
+
+Only if a native file is missing, restore Driver App from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+env -u DEBUG corepack pnpm exec firebase apps:sdkconfig ANDROID 1:421320726419:android:ecf83418678098427eba66 --project spacemansystemsbackend -o apps/driver-app/google-services.json
+```
+
+Never display or stage those files.
+
+## 4. Run the complete source-quality gate
 
 Run from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
@@ -94,8 +140,9 @@ corepack pnpm test
 corepack pnpm build
 ```
 
-Every command must pass before a manual commit. A smoke test does not override
-a failed typecheck, lint, unit test, or build.
+Every command must pass before a manual commit. The web builds currently report
+large Firebase entry chunks; record the warning for Phase 3 performance work,
+but do not treat it as an identity failure.
 
 ## 5. Run Playwright manually
 
@@ -106,21 +153,59 @@ Install the checked-in Chromium browser once. Run from
 corepack pnpm exec playwright install chromium
 ```
 
-Run the web E2E smoke test from
+Run the three web identity-boundary tests from
 `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
 corepack pnpm test:web:e2e
 ```
 
-Playwright starts Admin Web on `http://127.0.0.1:4173`, Merchant Web on
-`http://127.0.0.1:4174`, and Customer Web on `http://127.0.0.1:4175`. It runs
-the three Chromium heading checks serially, reports through the list reporter,
-and writes ignored output under `test-results/`. A first cold navigation can
-take about one minute on a resource-constrained workstation; the checked-in
-timeouts account for that without adding retries.
+The harness builds and previews Admin Web on `127.0.0.1:4173`, Merchant Web on
+`127.0.0.1:4174`, and Customer Web on `127.0.0.1:4175`. A cold browser launch
+can take several minutes on this two-core workstation. Failure traces under
+ignored `test-results/` must be inspected before removal.
 
-## 6. Smoke-test the three web apps
+## 6. Re-run the self-cleaning live security matrix
+
+Application Default Credentials must belong to an account authorized for the
+development project. If they are absent, run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+gcloud auth application-default login
+```
+
+Run the guarded identity test from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+(
+  set -a
+  source apps/customer-web/.env.local
+  set +a
+  env -u DEBUG GOOGLE_CLOUD_PROJECT=spacemansystemsbackend SPACEMAN_ENVIRONMENT=development SPACEMAN_FUNCTIONS_REGION=africa-south1 SPACEMAN_FIREBASE_WEB_API_KEY="$VITE_FIREBASE_API_KEY" corepack pnpm --dir firebase/functions run test:identity:live
+)
+```
+
+The result must report every case as `passed` and end with `Live identity
+fixture cleanup completed and verified.` The script uses a random exact
+`testRunId`, temporary Firebase Auth UIDs, and post-cleanup Firestore/Auth
+verification. Never run it against another project.
+
+## 7. Bootstrap the retained development super-admin
+
+Choose an email inbox you control. This is a retained development identity,
+not a disposable test fixture. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`, replacing both placeholders:
+
+```sh
+GOOGLE_CLOUD_PROJECT=spacemansystemsbackend SPACEMAN_ENVIRONMENT=development corepack pnpm --dir firebase/functions run bootstrap:super-admin -- --email=YOUR_EMAIL_ADDRESS --display-name="YOUR_DISPLAY_NAME"
+```
+
+The command is idempotent for the same super-admin email and does not create or
+print a password.
+
+## 8. Start and test the three web apps
 
 Use a separate terminal for each server.
 
@@ -130,15 +215,11 @@ Run Admin Web from `/home/mmekwa/Desktop/projects/spacemansystems`:
 corepack pnpm --filter @spaceman/admin-web dev -- --host 127.0.0.1 --port 5173
 ```
 
-Open `http://127.0.0.1:5173` and verify `Operations foundation`.
-
 Run Merchant Web from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
 corepack pnpm --filter @spaceman/merchant-web dev -- --host 127.0.0.1 --port 5174
 ```
-
-Open `http://127.0.0.1:5174` and verify `Merchant operations foundation`.
 
 Run Customer Web from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
@@ -146,12 +227,36 @@ Run Customer Web from `/home/mmekwa/Desktop/projects/spacemansystems`:
 corepack pnpm --filter @spaceman/customer-web dev -- --host 127.0.0.1 --port 5175
 ```
 
-Open `http://127.0.0.1:5175` and verify `Marketplace foundation`.
+Complete this manual matrix:
 
-## 7. Smoke-test the two Expo Go apps
+1. At `http://127.0.0.1:5175`, confirm guest marketplace content is visible and
+   **Continue to checkout** opens sign-in/registration.
+2. Register a controlled customer email, observe **Verify your email**, open
+   the real verification email, and select **I verified — refresh**. Confirm
+   **Customer account ready**, sign out, sign in, then reload the page and
+   confirm the session restores.
+3. At `http://127.0.0.1:5173`, enter the bootstrapped super-admin email under
+   **Accept invitation or reset password**, send the setup link, set a password,
+   and sign in. Confirm **Operations foundation** and **Staff identity
+   lifecycle**.
+4. Invite retained development Merchant and Driver emails that you control.
+   Give the Merchant at least one test store scope and the Driver at least one
+   delivery-zone scope; activate both accounts. Use their setup emails to set
+   passwords.
+5. At `http://127.0.0.1:5174`, sign in as the Merchant. Confirm **Merchant
+   operations foundation**, the assigned scope, reload/session restoration,
+   sign-out, and sign-in.
+6. Sign the Merchant into Admin Web and confirm **Admin access unavailable**.
+   Sign the super-admin back in, suspend the Merchant, and confirm the Merchant
+   loses access after refresh. Reactivate the retained account when finished.
 
-Connect the device and workstation to the same LAN and use a separate terminal
-for each app.
+Do not use the browser console or Firestore Console to modify protected role,
+status, or scope fields.
+
+## 9. Test the two Expo Go apps
+
+Connect the Android device and workstation to the same LAN. Stop any other
+Metro server first and test one app at a time.
 
 Run Customer App from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
@@ -159,8 +264,9 @@ Run Customer App from `/home/mmekwa/Desktop/projects/spacemansystems`:
 corepack pnpm --filter @spaceman/customer-app exec expo start --clear --lan
 ```
 
-Scan the QR code in Expo Go and verify `Marketplace foundation`. Allow the
-first Android bundle several minutes on a resource-constrained workstation.
+Scan the QR code in Expo Go. Repeat the customer registration/verification or
+sign in with the verified development customer. Confirm **Customer account
+ready**, terminate/reopen Expo Go to verify persistence, then sign out.
 
 Run Driver App from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
@@ -168,130 +274,85 @@ Run Driver App from `/home/mmekwa/Desktop/projects/spacemansystems`:
 corepack pnpm --filter @spaceman/driver-app exec expo start --clear --lan
 ```
 
-Scan the QR code and verify `Delivery operations foundation`.
+Sign in with the activated retained Driver account. Confirm **Delivery
+operations**, the assigned delivery-zone scope, terminate/reopen Expo Go to
+verify persistence, then sign out. Suspend the Driver from Admin Web and verify
+**Driver access unavailable** after refresh; reactivate the retained account
+when finished.
 
-If LAN discovery is unavailable, stop the affected server and replace `--lan`
-with `--tunnel` from the same repository directory.
-
-## 8. Run native checks and optional Maestro flows
-
-Run from `/home/mmekwa/Desktop/projects/spacemansystems`:
-
-```sh
-corepack pnpm --filter @spaceman/customer-app typecheck
-corepack pnpm --filter @spaceman/customer-app lint
-corepack pnpm --filter @spaceman/customer-app test
-corepack pnpm --filter @spaceman/driver-app typecheck
-corepack pnpm --filter @spaceman/driver-app lint
-corepack pnpm --filter @spaceman/driver-app test
-```
-
-Maestro requires installed development builds and real application IDs. Once
-those Phase 7 prerequisites exist, run from
+If LAN discovery fails, stop Metro and run Customer App from
 `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
-MAESTRO_CUSTOMER_APP_ID='<CUSTOMER_ANDROID_APPLICATION_ID>' maestro test .maestro/customer-foundation.yaml
-MAESTRO_DRIVER_APP_ID='<DRIVER_ANDROID_APPLICATION_ID>' maestro test .maestro/driver-foundation.yaml
+corepack pnpm --filter @spaceman/customer-app exec expo start --clear --tunnel
 ```
 
-Do not claim Maestro passed while the application IDs/development builds are
-absent.
-
-## 9. Development Firebase integration gate
-
-Before an approved integration test, run from
-`/home/mmekwa/Desktop/projects/spacemansystems`:
+Or run Driver App from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
-firebase use
-gcloud config get-value project
-firebase functions:list --project spacemansystemsbackend
-firebase firestore:databases:list --project spacemansystemsbackend
-firebase hosting:sites:list --project spacemansystemsbackend
+corepack pnpm --filter @spaceman/driver-app exec expo start --clear --tunnel
 ```
 
-Every integration fixture must carry one exact `testRunId`. Create it from
+## 10. Record evidence and review the dirty worktree
+
+Record the date, client, account role, expected result, actual result, and a
+redacted screenshot or terminal excerpt under `docs/live-test-data-docs/`.
+Never record email addresses, UIDs, tokens, API keys, or passwords.
+
+Stop Vite/Expo servers with `Ctrl+C`. Then run from
 `/home/mmekwa/Desktop/projects/spacemansystems`:
-
-```sh
-testRunId="live-$(date -u +%Y%m%dT%H%M%SZ)-$(git rev-parse --short HEAD)"
-printf '%s\n' "$testRunId"
-```
-
-Seed and clean only through authenticated trusted development commands using
-that exact ID. Never delete a collection or write privileged Firestore fields
-directly from a client or shell.
-
-The Phase 2–6 live scenario eventually proves: scoped sign-in, active catalog
-browse, server-verified serviceability/fee, Paystack test payment, exactly one
-paid order, merchant fulfillment, admin dispatch, driver delivery/location,
-customer tracking, notification/audit evidence, and exact fixture cleanup.
-
-## 10. Stop services and clean generated output
-
-Stop each Vite/Expo server with `Ctrl+C` in its own terminal.
-
-Generated directories are ignored and may be removed after inspecting failed
-evidence. Prefer a recoverable temporary move. Run from
-`/home/mmekwa/Desktop/projects/spacemansystems`:
-
-```sh
-cleanup_dir="$(mktemp -d /tmp/spacemansystems-generated.XXXXXX)"
-test -d test-results && mv test-results "$cleanup_dir/test-results"
-test -d playwright-report && mv playwright-report "$cleanup_dir/playwright-report"
-printf 'Generated-output backup: %s\n' "$cleanup_dir"
-```
-
-## 11. Review and commit manually
-
-Run from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
 git status --short --branch
 git diff --check
 git diff --stat
 git diff
+git diff --cached --check
+git diff --cached --stat
+git diff --cached
 ```
 
-After all checks and live tests pass, stage only reviewed files and inspect the
-staged diff. Run from `/home/mmekwa/Desktop/projects/spacemansystems`:
+Confirm that `.env.local`, `google-services.json`, secrets, `node_modules`,
+build output, Expo caches, and Playwright reports are absent from the staged
+diff.
+
+## 11. Commit manually after Phase 2 acceptance
+
+Only after all preceding checks pass, stage reviewed files from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
 git add -A
 git diff --cached --check
 git diff --cached --stat
 git diff --cached
-git commit -m '<reviewed commit message>'
 ```
 
-The project owner performs commits and any remote push manually. Never stage
-`.env.local`, secrets, service accounts, `node_modules`, build output, Expo
-caches, or test reports.
+Commit from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
-## 12. Manual deployment rule
+```sh
+git commit -m "implement phase 2 identity and security"
+```
 
-Deployment is not part of the smoke test. Development deployment requires a
-separate explicit authorization after the source-quality, Playwright, and
-development-project target checks pass. Production deployment remains blocked
-until Phase 7 is 100% complete and the production acceptance matrix is
-reviewed and explicitly approved.
+The project owner performs any push manually. Production deployment remains
+blocked until Phase 7 reaches 100% and its acceptance matrix is explicitly
+approved.
 
-## Evidence record
+## Evidence already recorded
 
-- 2026-07-21: project owner reported successful manual smoke startup/rendering
-  for all five app shells.
-- 2026-07-21: `corepack pnpm validate` passed documentation checks, recursive
-  type-check, lint, unit tests, and production builds.
-- 2026-07-21: Customer App and Driver App passed `expo install --check`.
-- 2026-07-21: Playwright passed all three Chromium web-shell checks after its
-  cold-start timeout was corrected.
+- 2026-07-21: owner-provided screenshots show Customer App and Driver App Phase
+  1 shells rendered in Expo Go; the terminal log records successful Android
+  bundles. This does not close the newer Phase 2 identity UI gate.
+- 2026-07-21: shared/package/Functions checks, all web builds, both native
+  Jest/type-check/export gates, and three-client Playwright passed.
+- 2026-07-21: exact live run
+  `phase2_identity_1784610317153_749c82ef` passed the real-Firebase identity and
+  denial matrix and verified zero Firestore/Auth residue.
 
 ## Official references
 
-- [pnpm installation](https://pnpm.io/installation)
 - [Firebase CLI](https://firebase.google.com/docs/cli)
-- [Google Cloud CLI](https://cloud.google.com/sdk/docs/install)
+- [Firebase callable Functions](https://firebase.google.com/docs/functions/callable)
+- [Firebase App Check](https://firebase.google.com/docs/app-check)
 - [Expo environment setup](https://docs.expo.dev/get-started/set-up-your-environment/)
 - [Playwright test runner](https://playwright.dev/docs/test-cli)
-- [Maestro](https://docs.maestro.dev/)
