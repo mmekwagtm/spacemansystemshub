@@ -48,3 +48,11 @@ audited cleanup command may remove that run's tagged records.
 Maps failures block payment; notifications are in-app plus native FCM; Driver
 App location is foreground-only during active delivery; no media proof is
 collected in V1.
+
+## AD-009: Manual validation and release control
+
+Repository-hosted automation workflows are not part of this project. The
+project owner runs the documented validation, Playwright, Expo Go, Maestro,
+Firebase integration, and release-acceptance steps manually, reviews the
+resulting diff, and creates commits manually. Production deployment remains
+blocked until the complete Phase 7 acceptance matrix is reviewed and approved.

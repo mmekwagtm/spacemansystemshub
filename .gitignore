@@ -20,5 +20,6 @@ blob-report/
 *.local
 apps/*/android/
 apps/*/ios/
+apps/*/expo-env.d.ts
 *.keystore
 *.mobileprovision

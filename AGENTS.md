@@ -108,7 +108,7 @@ explicit approval.
 
 Client-safe Firebase configuration belongs in untracked app-local environment
 files derived from tracked examples. Paystack secrets, webhook secrets, and
-server credentials belong only in Firebase/CI secret management. Never print
+server credentials belong only in Firebase-managed secret storage. Never print
 or commit secret values.
 
 Canonical root collections are:
@@ -158,8 +158,9 @@ privileged dev-only cleanup command may remove records tagged with that exact
 run ID. Never run broad collection cleanup.
 
 Use Vitest and Testing Library for shared/web code, Jest/Expo for native code,
-Playwright for web E2E, and Maestro on Expo development builds. GitHub Actions
-must gate deploys through approved development and production environments.
+Playwright for web E2E, and Maestro on Expo development builds. Testing,
+commits, and deployments are manual. A production deployment still requires
+an explicit production acceptance review and approval.
 
 ## 8. Working Style and Documentation
 

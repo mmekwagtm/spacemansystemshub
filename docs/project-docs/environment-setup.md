@@ -22,7 +22,7 @@ the baseline without explicit approval.
 Track `.env.example` files only. Keep actual `.env.local` files untracked.
 Client Firebase identifiers may be exposed only through the app configuration
 layer; Paystack secrets, webhook secrets, service credentials, and private
-keys stay in Firebase/CI secret stores. Never put secrets in source, docs,
+keys stay in Firebase-managed secret storage. Never put secrets in source, docs,
 browser bundles, or logs.
 
 ## Local source baseline

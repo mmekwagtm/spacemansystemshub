@@ -4,7 +4,7 @@
 
 This repository now contains the greenfield source implementation baseline for
 Spaceman Projects: five application shells, shared package contracts, Firebase
-Rules and Functions source, test harnesses, and CI/deployment templates. It is
+Rules and Functions source, manual test harnesses, and deployment templates. It is
 not a configured or deployed Firebase environment.
 
 The native manifests target Expo SDK 57, but the local dependency installation

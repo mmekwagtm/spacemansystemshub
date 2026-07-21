@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "421320726419",
+    "project_id": "spacemansystemsbackend",
+    "storage_bucket": "spacemansystemsbackend.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:421320726419:android:77598e1763016ad87eba66",
+        "android_client_info": {
+          "package_name": "com.customer.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4FcpM1bG86IirkI0VTjXw4D610h7Kp2I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:421320726419:android:ecf83418678098427eba66",
+        "android_client_info": {
+          "package_name": "com.driver.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4FcpM1bG86IirkI0VTjXw4D610h7Kp2I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

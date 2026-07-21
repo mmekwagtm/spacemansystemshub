@@ -14,8 +14,9 @@
 
 Use the shared real development Firebase project only. Validate configuration
 through typed environment parsing; never print secret values. Deploy backend
-compatibility before clients that depend on it, and use manual GitHub Actions
-approval gates for development and production.
+compatibility before clients that depend on it. Run the documented validation
+and live-test gates manually before every deployment; production additionally
+requires an explicit production acceptance review and approval.
 
 ## Sensitive-write workflow
 
@@ -26,12 +27,14 @@ intent together where feasible.
 
 ## Validation commands
 
-After the SDK-57 dependency state is explicitly synchronized, run from
-`/home/mmekwa/Desktop/projects/spacemansystems`:
+Run from `/home/mmekwa/Desktop/projects/spacemansystems` before a manual
+commit or deployment:
 
 ```sh
-pnpm typecheck
-pnpm lint
-pnpm test
-pnpm build
+corepack pnpm docs:check
+corepack pnpm typecheck
+corepack pnpm lint
+corepack pnpm test
+corepack pnpm build
+corepack pnpm test:web:e2e
 ```

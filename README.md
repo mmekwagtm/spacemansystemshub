@@ -5,12 +5,13 @@ five-app marketplace and delivery platform.
 
 ## Current state
 
-The source workspace is present: it includes five app shells, shared packages,
-Firebase Rules/Functions templates, and release/test harnesses. The native
-manifests target Expo SDK 57. Read
-[current status](docs/project-docs/current-status.md) before assuming live
-Firebase configuration, a synchronized dependency installation, or a deployed
-application exists.
+Phases 0 and 1 are accepted: the synchronized workspace contains five app
+shells, shared packages, Firebase Rules/Functions templates, and manual test
+harnesses. The native manifests target Expo SDK 57, and the current baseline
+passes full workspace validation plus browser/native smoke checks. Read
+[current status](docs/project-docs/current-status.md) before assuming a Phase
+2-7 business flow, live development-project integration, or production
+deployment is accepted.
 
 ## Architecture and decisions
 
