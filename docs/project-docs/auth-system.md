@@ -69,5 +69,6 @@ The 2026-07-21 development live matrix verified customer bootstrap and email
 verification, trusted staff invitation/scope/activation, replay denial,
 protected-field denial, cross-user/store/driver denial, immediate suspended and
 archived stale-token denial in both Functions and Rules, Storage denial, and
-exact fixture cleanup. Human cross-app sign-in and Expo Go acceptance remains
-listed in `live-test-steps.md`.
+exact fixture cleanup. The owner subsequently completed the five-client manual
+sign-in, setup, role/status-boundary, session, and Expo Go matrix recorded under
+`docs/live-test-data-docs/`.

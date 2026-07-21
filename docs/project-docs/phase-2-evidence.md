@@ -34,9 +34,8 @@
 - Customer App and Driver App: TypeScript, ESLint, Jest, Expo dependency check,
   and Android production export passed. Both exports bundled 1,276 modules and
   emitted a roughly 4.1 MB Hermes bundle.
-- Owner evidence under `docs/live-test-data-docs/` records successful Phase 1
-  Expo Go rendering for both native shells. Those screenshots predate the Phase
-  2 identity UI.
+- Owner evidence under `docs/live-test-data-docs/` records the current customer
+  and staff identity journeys, status/role boundaries, and both Expo Go apps.
 
 ## Real Firebase identity matrix
 
@@ -60,22 +59,20 @@ Passed cases:
 - All exact-tag Firestore documents, audit records, and temporary Firebase Auth
   users removed; the script's post-cleanup verification passed.
 
-## Security decisions and remaining actions
+## Security decisions and future gates
 
 - App Check enforcement remains off per `app-check.md` until web providers and
   native development-build attestation can be verified without client lockout.
 - The Paystack test secret must be rotated before Phase 4. Its value is not
   reproduced in source or this evidence.
-- Human Phase 2 acceptance remains: real inbox verification/password setup,
-  role/inactive screens, sign-out and session restoration across the three web
-  clients and two Expo Go clients.
+- Human Phase 2 acceptance passed across the three web clients and two Expo Go
+  clients; redacted screenshots and terminal evidence are stored under
+  `docs/live-test-data-docs/`.
 - Production deployment is not authorized.
 
 ## Dirty-worktree report
 
-The checkout was clean at Phase 2 start. The final dirty set is intentional:
-identity implementation/configuration, package manifests and `pnpm-lock.yaml`,
-Rules/Functions/test harnesses, and project documentation. Both
-`google-services.json` files appear as staged deletions because they were
-removed from Git tracking; the ignored local files remain present. No commit,
-push, or production deployment was performed.
+The checkout was clean at Phase 2 start. Phase 2 implementation and live-test
+evidence were reviewed and committed manually by the owner. Both
+`google-services.json` files remain present locally and ignored after removal
+from Git tracking. No production deployment was performed.

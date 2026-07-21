@@ -119,12 +119,13 @@ from `docs/project-docs/live-test-steps.md`. Do not use emulators or production.
 - [x] Cross-role, ownership, immutable-field, scoped, and inactive-user denials pass.
 - [x] App Check rollout decision and non-lockout evidence are documented.
 - [x] Tagged fixtures are removed only by exact privileged cleanup.
-- [ ] Manual validation, Playwright, native tests, and five-app smoke tests pass.
+- [x] Manual validation, Playwright, native tests, and five-app smoke tests pass.
 - [x] Documentation and roadmap evidence match the live checkout.
 
-Phase 3 may not begin until every checklist item is complete.
+The Phase 2 exit gate is complete. Phase 3 may begin only from its approved,
+bounded plan.
 
-## Execution status: 90%
+## Execution status: 100%
 
 Source, development-cloud deployment, package validation, web builds,
 Playwright, native Jest/type-check/export, and the self-cleaning real-Firebase
@@ -134,9 +135,10 @@ verification, trusted staff invitation/scope/activation, protected-field and
 cross-role/user/store/driver denial, replay denial, immediate suspended and
 archived stale-token denial, Storage denial, and zero tagged/Auth residue.
 
-The unchecked item is intentionally narrow: the owner must exercise the
-current Phase 2 UI on all five clients, including real inbox verification and
-password setup plus session restoration. Earlier owner evidence proves the two
-Expo shells rendered before the identity UI was added, so it cannot close this
-new gate. Use `docs/project-docs/live-test-steps.md` and attach the resulting
-evidence before marking Phase 2 complete.
+The owner completed the current five-client manual identity matrix on
+2026-07-21, including customer verification, staff invitation/password setup,
+role and inactive-state boundaries, session behavior, and both Expo Go apps.
+Redacted screenshots are stored under
+`docs/live-test-data-docs/images/phase2-images/`; terminal validation and live
+Firebase results are stored in
+`docs/live-test-data-docs/terminal-data/terminal-data-phase-2`.

@@ -340,9 +340,10 @@ approved.
 
 ## Evidence already recorded
 
-- 2026-07-21: owner-provided screenshots show Customer App and Driver App Phase
-  1 shells rendered in Expo Go; the terminal log records successful Android
-  bundles. This does not close the newer Phase 2 identity UI gate.
+- 2026-07-21: owner-provided Phase 2 screenshots record customer and staff
+  identity journeys, role/inactive boundaries, and both current Expo Go apps.
+  The matching terminal record is
+  `docs/live-test-data-docs/terminal-data/terminal-data-phase-2`.
 - 2026-07-21: shared/package/Functions checks, all web builds, both native
   Jest/type-check/export gates, and three-client Playwright passed.
 - 2026-07-21: exact live run
