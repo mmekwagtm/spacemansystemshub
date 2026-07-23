@@ -71,7 +71,6 @@ export const catalogSourceSchema = z.enum([
   "merchant",
   "google_places",
   "catalog_csv",
-  "catalog_api",
 ]);
 export const phoneE164Schema = z.string().regex(/^\+[1-9]\d{6,14}$/);
 export const emailAddressSchema = z
@@ -221,7 +220,7 @@ export const upsertItemInputSchema = z.object({
   categoryLabel: z.string().trim().min(1).max(120).default("General"),
   sortOrder: z.number().int().min(0).max(1_000_000).default(0),
   source: z
-    .enum(["manual", "merchant", "catalog_csv", "catalog_api"])
+    .enum(["manual", "merchant", "catalog_csv"])
     .default("manual"),
   sourceId: z.string().trim().min(1).max(256).optional(),
   importBatchId: idSchema.optional(),
@@ -253,20 +252,6 @@ export const stageGoogleStoreImportInputSchema = z.object({
 export const stageCsvCatalogImportInputSchema = z.object({
   storeId: idSchema,
   csv: z.string().min(1).max(1_000_000),
-});
-
-export const httpsUrlSchema = z
-  .string()
-  .url()
-  .max(2_048)
-  .refine(
-    (value) => new URL(value).protocol === "https:",
-    "Only HTTPS URLs are accepted.",
-  );
-
-export const stageApiCatalogImportInputSchema = z.object({
-  storeId: idSchema,
-  url: httpsUrlSchema,
 });
 
 export const commitCatalogImportInputSchema = z.object({

@@ -32,7 +32,7 @@ service cloud.firestore {
         && request.auth.token.storeIds.hasAny([storeId]);
     }
 
-    function pendingMerchantOwner(store) {
+    function onboardingMerchantOwner(store) {
       return signedIn()
         && request.auth.token.role == 'merchant'
         && (request.auth.token.status == 'pending_profile' || request.auth.token.status == 'pending_approval')
@@ -41,7 +41,7 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == request.auth.token.status
         && store.merchantId == request.auth.uid
         && store.status == 'draft'
-        && store.approvalState == 'pending';
+        && (store.approvalState == 'pending' || store.approvalState == 'rejected');
     }
 
     function activeMerchantOwner(store) {
@@ -92,7 +92,7 @@ service cloud.firestore {
         || platformStaff()
         || merchantFor(storeId)
         || activeMerchantOwner(resource.data)
-        || pendingMerchantOwner(resource.data);
+        || onboardingMerchantOwner(resource.data);
       allow write: if false;
     }
 

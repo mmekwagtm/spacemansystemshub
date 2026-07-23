@@ -122,6 +122,12 @@ Before adding or changing a field or collection, update types, schemas,
 repositories, services, query keys/hooks, Rules, indexes, Functions, and docs
 in the same bounded change. Do not loosen Rules to work around a backend gap.
 
+External JSON/HTTPS catalog API import is prohibited. Do not add or restore an
+API catalog staging callable, API-source catalog type, host allowlist secret,
+or API-import UI. Marketplace import scope is limited to reviewed CSV item
+imports and Google Places store staging; selected-row commit remains only for
+those approved staged batches.
+
 ## 6. State, Realtime, Cost, and Media
 
 Use TanStack Query for server/Firebase state and Zustand only for local UI

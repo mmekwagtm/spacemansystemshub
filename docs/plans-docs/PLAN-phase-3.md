@@ -36,8 +36,8 @@ public active catalog to guests and authenticated customers.
    query-filter, and trusted-command contracts across shared packages.
 3. Firestore repositories, client-safe services, TanStack Query hooks,
    invalidation, cursor pagination, and required composite indexes.
-4. Admin manual store/item creation, Google Places store import, merchant store
-   review, CSV/API item import, editing, publication, and retirement.
+4. Admin manual store/item creation, Google Places store staging, merchant
+   store review, CSV item import, editing, publication, and retirement.
 5. Merchant draft submission plus assigned-store profile, hours, ordering
    availability, catalog, item availability, price, category, sort, and media
    management within server-enforced scope.
@@ -60,6 +60,8 @@ public active catalog to guests and authenticated customers.
 - App Check enforcement, production configuration/deployment, Hosting/EAS
   release, or unrelated visual redesign.
 - Catalog realtime listeners. Marketplace reads remain cached and paginated.
+- External JSON/HTTPS catalog API import, arbitrary remote catalog fetching,
+  host allowlist secrets, or API-source selected-row commit.
 
 ## Canonical marketplace contract
 
@@ -84,8 +86,8 @@ public active catalog to guests and authenticated customers.
 - Preserve `draft`, `active`, `hidden`, and `archived` status and add a
   separate availability value for temporarily unavailable items.
 - Add normalized search name, category ID/label, sort order, image alt text,
-  catalog media, source (`manual`, `csv`, or `api`), source reference, and
-  import-batch metadata.
+  catalog media, source (`manual`, `merchant`, or `catalog_csv`), source
+  reference, and import-batch metadata.
 - Keep `storeId` immutable. Money remains integer ZAR minor units. Merchant
   changes are scoped and audited; privileged retirement remains admin-owned.
 - Active item status alone is insufficient for public visibility: the parent
@@ -101,12 +103,11 @@ public active catalog to guests and authenticated customers.
   commit/cancel. Only checked rows commit, and a stable source/store/content
   identity prevents duplicate replay.
 - Google Places requests run server-side with an approved restricted key and
-  field masks. Item API imports accept only approved HTTPS hosts and a
-  documented JSON item shape; redirects, private/link-local destinations,
-  oversized payloads, timeouts, and invalid content fail closed.
-- CSV/API imports are capped at 500 candidate rows per batch. External images
-  are validated and copied into Cloud Storage rather than retained as mutable
-  provider URLs.
+  field masks.
+- CSV imports are capped at 400 candidate rows per batch. External JSON/HTTPS
+  catalog fetching is prohibited; CSV media must be uploaded through the
+  validated Cloud Storage media workflow rather than retained as a mutable
+  provider URL.
 - Catalog uploads accept JPEG, PNG, or WebP only, enforce bounded size, and
   create compressed originals plus thumbnails. Staging media is private to the
   actor; published reads follow store/item visibility; cleanup is exact,
@@ -123,7 +124,7 @@ public active catalog to guests and authenticated customers.
   invalidate only affected store/catalog/import keys.
 - Replace the broad marketplace upsert behavior with typed commands for
   merchant store submission, admin review, scoped store update, item upsert,
-  item availability, item retirement, Google staging, CSV/API staging, import
+  item availability, item retirement, Google staging, CSV staging, import
   commit/cancel, and exact media cleanup.
 - A narrow onboarding command may accept a canonical `pending_approval`
   merchant for their own draft submission. It must not unlock operational
@@ -163,7 +164,7 @@ public active catalog to guests and authenticated customers.
 ### 3.4 Catalog, imports, and media
 
 - Implement manual items, scoped merchant edits, availability, admin
-  retirement, CSV/API staging, row selection, idempotent commit, Storage
+  retirement, CSV staging, row selection, idempotent commit, Storage
   upload/finalization, thumbnails, and orphan cleanup.
 - Preserve existing order snapshot contracts; mutable catalog changes never
   rewrite historical order data.
@@ -223,8 +224,8 @@ after they are implemented and documented in
    applies exact scope without allowing self-approval.
 4. Scoped merchant edits hours, open state, item presentation, price,
    availability, category, sort, and media; cross-store actions fail.
-5. Admin previews CSV and allowlisted API candidates, commits selected rows,
-   and confirms replay creates no duplicates.
+5. Admin previews CSV candidates, commits selected rows, and confirms unchecked
+   rows remain absent and replay creates no duplicates.
 6. Customer Web and the self-contained Customer App preview APK show identical
    active stores/items to guests and authenticated customers;
    draft/suspended/archived parents and retired items remain hidden.
@@ -236,11 +237,11 @@ after they are implemented and documented in
 
 - [x] Deferred Functions runtime upgrade passes its bounded compatibility gate.
 - [x] One canonical marketplace contract is used across types, validation, repositories, services, queries, Rules, indexes, Functions, and docs.
-- [ ] Admin manual, Google, merchant-review, CSV, API, publish, edit, and retire workflows pass.
+- [ ] Admin manual, Google, merchant-review, CSV, publish, edit, and retire workflows pass.
 - [ ] Merchant onboarding and catalog/store changes remain approval-aware and store-scoped.
 - [ ] Customer Web and Customer App expose only consistent public active catalog data.
 - [x] Firestore and Storage cross-store, inactive, inactive-parent, direct-write, import, and media denials pass.
-- [x] Imports are reviewed, selected, idempotent, bounded, and allowlisted.
+- [x] CSV imports are reviewed, selected, idempotent, and bounded.
 - [x] Catalog media is compressed, thumbnail-backed, scoped, and exactly cleaned.
 - [x] Pagination, caching, invalidation, lazy loading, and bundle warnings meet the Phase 3 performance gate.
 - [x] Root validation, Playwright, native compatibility/export checks, live Firebase, and source documentation evidence pass.
@@ -254,9 +255,13 @@ Phase 4 may not begin until every checklist item is complete.
 The bounded source implementation, runtime upgrade, shared contracts, app
 interfaces, automated tests, Rules/indexes, Functions deployment, provider
 configuration, Playwright screenshots, and self-cleaning development live
-matrix are complete. Exact live run
-`phase3_marketplace_1784749355621_646a3a94` passed all cases and verified zero
-Auth, Firestore, import-row, audit, and Storage residue.
+matrix are complete. External JSON/HTTPS catalog API import was removed on
+2026-07-23 while CSV selected-row commit and Google Places staging were
+preserved. The callable, backing Cloud Run service, and host-allowlist secret
+are absent. The 13 retained callables were redeployed from the narrowed bundle.
+Authoritative post-deploy run
+`phase3_marketplace_1784796233777_d40dfad0` passed all 11 current cases and
+verified zero Auth, Firestore, import-row, audit, and Storage residue.
 
 The live matrix found and drove three narrow corrections before its all-pass
 run: merchant presentation updates no longer require protected address data,
@@ -266,8 +271,11 @@ Storage helper uses Firebase Auth's Storage authorization scheme.
 On 2026-07-23, the post-cleanup source gate passed documentation, type-check,
 lint, unit/contract tests, all workspace builds, Expo's online dependency
 compatibility check, both Android exports, and four Playwright Chromium
-scenarios. The current preview APKs still require owner-operated physical-device
-acceptance.
+scenarios. These gates passed again after external catalog API removal:
+Playwright completed four scenarios in 1.3 minutes, both Expo dependency checks
+were current, and fresh Android exports produced 4.3 MB Customer and 4.2 MB
+Driver application bundles. The current preview APKs still require
+owner-operated physical-device acceptance.
 
 Accepted progress remains 0% until the owner completes the five-app/manual
 acceptance matrix and records redacted evidence. Phase 4 remains blocked and

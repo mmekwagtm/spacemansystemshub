@@ -45,8 +45,9 @@ matrix already passes with exact cleanup.
   Firestore/Storage Rules, indexes, trusted Functions, and app-owned interfaces
   implement one marketplace contract.
 - Admin supports manual store/item work, merchant review, Google staging,
-  CSV/allowlisted-API preview and selected commit, media, and retirement.
-  Merchant supports pending onboarding and assigned-store/catalog changes.
+  CSV preview and selected commit, media, and retirement. Merchant supports
+  pending onboarding and assigned-store/catalog changes. External JSON/HTTPS
+  catalog API import is prohibited and removed.
 - Customer Web and Customer App use the same guest-readable active catalog,
   categories, unavailable-item state, thumbnails, bounded pagination, and
   stale/error feedback. Driver App remains a regression-only client.
@@ -109,13 +110,20 @@ Phase 3 evidence on 2026-07-21 additionally records:
   Admin, Merchant, Customer desktop, and Customer mobile screenshots under the
   ignored `test-results/` directory.
 - Development Firestore/Storage Rules and indexes are deployed; all marketplace
-  indexes report ready. The 14 marketplace Functions are deployed and active,
-  and the Places/allowlist secrets are configured without tracked values.
+  indexes report ready. The 13 approved marketplace Functions are active, and
+  the restricted Places server key is configured without a tracked value.
 - The owner-approved Cloud Run `roles/run.invoker`/`allUsers` transport binding
-  is applied to exactly the 14 marketplace callable services. Exact live run
-  `phase3_marketplace_1784749355621_646a3a94` passed all 12 marketplace,
-  provider, scope, denial, import, media, retirement, and stale-token cases and
-  verified zero Auth, Firestore, import-row, audit, and Storage residue.
+  is applied to exactly the 13 marketplace callable services.
+- The retired `stageApiCatalogImport` Function, backing Cloud Run service, and
+  `CATALOG_IMPORT_ALLOWED_HOSTS` secret are absent. Firestore inspection found
+  zero API import batches and zero API-derived items, so no data records
+  required deletion.
+- All 13 approved marketplace callables were redeployed from the narrowed
+  bundle. Authoritative post-deploy run
+  `phase3_marketplace_1784796233777_d40dfad0` passed all 11 current
+  marketplace, provider, scope, denial, CSV import, media, retirement, and
+  stale-token cases and verified zero Auth, Firestore, import-row, audit, and
+  Storage residue.
 - Earlier live attempts also cleaned successfully and exposed three corrected
   issues: protected address data was incorrectly required for a merchant
   presentation update, the import-row verifier needed a composite index, and
@@ -127,6 +135,11 @@ all unit/contract tests, all builds, Expo's online dependency check, both
 Android exports, and four Playwright Chromium scenarios. The regenerated
 Playwright screenshots are readable and contain no account data. Current
 preview APKs still require owner-operated physical-device acceptance.
+
+The same root gates were rerun after external catalog API removal. Documentation,
+workspace type-check, lint, all tests, all builds, four Playwright scenarios,
+both Expo compatibility checks, and fresh 4.3 MB Customer / 4.2 MB Driver
+Android exports passed.
 
 The earlier roughly 745 KB Firebase entry-chunk warning is resolved by explicit
 vendor splitting and marketplace lazy loading.

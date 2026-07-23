@@ -1,0 +1,4 @@
+name,description,price_minor,category,available,image_alt,external_id
+Playwright Burger,Minimal CSV fixture,8500,Meals,true,Playwright burger,pw-burger
+Playwright Juice,Minimal CSV fixture,2500,Drinks,false,Playwright juice,pw-juice
+Playwright Cookie,Minimal CSV fixture,1800,Desserts,true,Playwright cookie,pw-cookie

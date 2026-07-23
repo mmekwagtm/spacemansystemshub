@@ -23,7 +23,6 @@ import type {
   ImportBatchRow,
   Item,
   SetItemAvailabilityInput,
-  StageApiCatalogImportInput,
   StageCsvCatalogImportInput,
   StageGoogleStoreImportInput,
   Store,
@@ -56,7 +55,6 @@ import {
   retireCatalogItemInputSchema,
   reviewStoreSubmissionInputSchema,
   setItemAvailabilityInputSchema,
-  stageApiCatalogImportInputSchema,
   stageCsvCatalogImportInputSchema,
   stageGoogleStoreImportInputSchema,
   storePlaceSearchInputSchema,
@@ -198,7 +196,6 @@ export interface MarketplaceService {
   searchPlaces(input: StorePlaceSearchInput): Promise<StorePlaceCandidate[]>;
   stageGoogleImport(input: StageGoogleStoreImportInput): Promise<CommandResult>;
   stageCsvImport(input: StageCsvCatalogImportInput): Promise<CommandResult>;
-  stageApiImport(input: StageApiCatalogImportInput): Promise<CommandResult>;
   commitImport(input: CommitCatalogImportInput): Promise<CommandResult>;
   cancelImport(input: CancelCatalogImportInput): Promise<CommandResult>;
   cleanupMedia(input: CleanupCatalogMediaInput): Promise<CommandResult>;
@@ -291,12 +288,6 @@ export function createMarketplaceService(
       return gateway.invoke(
         "stageCsvCatalogImport",
         stageCsvCatalogImportInputSchema.parse(input),
-      );
-    },
-    stageApiImport(input) {
-      return gateway.invoke(
-        "stageApiCatalogImport",
-        stageApiCatalogImportInputSchema.parse(input),
       );
     },
     commitImport(input) {

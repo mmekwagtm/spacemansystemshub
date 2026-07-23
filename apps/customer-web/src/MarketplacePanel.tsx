@@ -1,5 +1,8 @@
 import { formatMoney } from "@spaceman/app-core";
-import { useActiveItems, useActiveStores } from "@spaceman/app-query";
+import {
+  useInfiniteActiveItems,
+  useInfiniteActiveStores,
+} from "@spaceman/app-query";
 import type { MarketplaceService } from "@spaceman/app-services";
 import { useEffect, useMemo, useState } from "react";
 
@@ -11,32 +14,50 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
   const [search, setSearch] = useState("");
   const [storeId, setStoreId] = useState<string>();
   const [category, setCategory] = useState("");
-  const stores = useActiveStores(service, {
-    limit: 50,
+  const stores = useInfiniteActiveStores(service, {
+    limit: 12,
     ...(search ? { search } : {}),
   });
-  const items = useActiveItems(service, storeId, {
-    limit: 50,
+  const items = useInfiniteActiveItems(service, storeId, {
+    limit: 12,
     ...(category ? { category } : {}),
   });
+  const storeRecords = useMemo(
+    () => stores.data?.pages.flatMap((page) => page.records) ?? [],
+    [stores.data],
+  );
+  const itemRecords = useMemo(
+    () => items.data?.pages.flatMap((page) => page.records) ?? [],
+    [items.data],
+  );
 
   useEffect(() => {
-    const first = stores.data?.records[0];
-    if (first && !stores.data?.records.some((store) => store.id === storeId))
+    const first = storeRecords[0];
+    if (first && !storeRecords.some((store) => store.id === storeId))
       setStoreId(first.id);
-  }, [storeId, stores.data]);
+  }, [storeId, storeRecords]);
 
   const categories = useMemo(
     () =>
-      [
-        ...new Set(items.data?.records.map((item) => item.categoryLabel) ?? []),
-      ].sort(),
-    [items.data],
+      [...new Set(itemRecords.map((item) => item.categoryLabel))].sort(),
+    [itemRecords],
   );
-  const selectedStore = stores.data?.records.find(
+  const selectedStore = storeRecords.find(
     (store) => store.id === storeId,
   );
-  const stale = stores.isFetching || items.isFetching;
+  const catalogFailed =
+    stores.isError ||
+    stores.isRefetchError ||
+    items.isError ||
+    items.isRefetchError;
+  const catalogHasData = storeRecords.length > 0 || itemRecords.length > 0;
+  const catalogState = catalogFailed
+    ? catalogHasData
+      ? "Cached catalog — refresh failed"
+      : "Catalog unavailable"
+    : stores.isFetching || items.isFetching
+      ? "Refreshing catalog…"
+      : "Catalog cached and current";
 
   return (
     <section className="marketplace" aria-label="Active marketplace">
@@ -45,9 +66,24 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
           <p className="eyebrow">Public catalog</p>
           <h2>Browse active stores</h2>
         </div>
-        <p className="catalog-state" role="status">
-          {stale ? "Refreshing catalog…" : "Catalog cached and current"}
-        </p>
+        <div>
+          <p className="catalog-state" role="status">
+            {catalogState}
+          </p>
+          <button
+            className="secondary"
+            disabled={stores.isFetching || items.isFetching}
+            type="button"
+            onClick={() =>
+              void Promise.all([
+                stores.refetch(),
+                ...(storeId ? [items.refetch()] : []),
+              ])
+            }
+          >
+            Refresh catalog
+          </button>
+        </div>
       </div>
       <label className="search-field">
         Search stores
@@ -57,17 +93,17 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
           placeholder="Start typing a store name"
         />
       </label>
-      {stores.isError ? (
+      {stores.isError || stores.isRefetchError ? (
         <p className="message error" role="alert">
           The catalog is temporarily unavailable. Cached results remain visible
           when available.
         </p>
       ) : null}
-      {!stores.isLoading && stores.data?.records.length === 0 ? (
+      {!stores.isLoading && storeRecords.length === 0 ? (
         <p>No active approved stores match this search.</p>
       ) : null}
       <div className="catalog-grid">
-        {stores.data?.records.map((store) => (
+        {storeRecords.map((store) => (
           <article
             className={`store-card ${store.id === storeId ? "selected" : ""}`}
             key={store.id}
@@ -105,6 +141,16 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
           </article>
         ))}
       </div>
+      {stores.hasNextPage ? (
+        <button
+          className="secondary"
+          disabled={stores.isFetchingNextPage}
+          type="button"
+          onClick={() => void stores.fetchNextPage()}
+        >
+          {stores.isFetchingNextPage ? "Loading stores…" : "Load more stores"}
+        </button>
+      ) : null}
 
       {selectedStore ? (
         <section className="subpanel" aria-label={`${selectedStore.name} menu`}>
@@ -126,16 +172,16 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
               </select>
             </label>
           </div>
-          {items.isError ? (
+          {items.isError || items.isRefetchError ? (
             <p className="message error" role="alert">
               Menu refresh failed. Try again shortly.
             </p>
           ) : null}
-          {!items.isLoading && items.data?.records.length === 0 ? (
+          {!items.isLoading && itemRecords.length === 0 ? (
             <p>No active menu items are available.</p>
           ) : null}
           <div className="catalog-grid">
-            {items.data?.records.map((item) => (
+            {itemRecords.map((item) => (
               <article
                 className={`item-card ${item.available ? "" : "unavailable"}`}
                 key={item.id}
@@ -161,6 +207,18 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
               </article>
             ))}
           </div>
+          {items.hasNextPage ? (
+            <button
+              className="secondary"
+              disabled={items.isFetchingNextPage}
+              type="button"
+              onClick={() => void items.fetchNextPage()}
+            >
+              {items.isFetchingNextPage
+                ? "Loading menu…"
+                : "Load more menu items"}
+            </button>
+          ) : null}
         </section>
       ) : null}
     </section>

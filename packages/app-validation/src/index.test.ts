@@ -6,7 +6,6 @@ import {
   createCheckoutSessionInputSchema,
   customerRegistrationInputSchema,
   openingHoursPeriodSchema,
-  stageApiCatalogImportInputSchema,
   testFixtureMutationInputSchema,
   updateMerchantStoreInputSchema,
 } from "./index";
@@ -94,7 +93,7 @@ describe("command validation", () => {
     expect(result).not.toHaveProperty("address");
   });
 
-  it("accepts only bounded catalog images and HTTPS API sources", () => {
+  it("accepts only bounded catalog images", () => {
     expect(
       catalogMediaSchema.parse({
         sourcePath: "catalog/store-a/staging/user/asset/source.webp",
@@ -111,18 +110,6 @@ describe("command validation", () => {
         altText: "Oversized",
         contentType: "image/jpeg",
         sizeBytes: 5_000_001,
-      }),
-    ).toThrow();
-    expect(
-      stageApiCatalogImportInputSchema.parse({
-        storeId: "store-a",
-        url: "https://catalog.example.com/items.json",
-      }).url,
-    ).toContain("https://");
-    expect(() =>
-      stageApiCatalogImportInputSchema.parse({
-        storeId: "store-a",
-        url: "http://catalog.example.com/items.json",
       }),
     ).toThrow();
   });

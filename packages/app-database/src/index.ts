@@ -249,7 +249,7 @@ export function createFirestoreRepositories(
         return readPage<Store>(firestore, "stores", request, [
           where("merchantId", "==", merchantId),
           where("status", "==", "draft"),
-          where("approvalState", "==", "pending"),
+          where("approvalState", "in", ["pending", "rejected"]),
           ...catalogFilters(request, "category"),
         ]);
       },

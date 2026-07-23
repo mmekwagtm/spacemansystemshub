@@ -7,7 +7,7 @@ import {
   usePendingMerchantStores,
 } from "@spaceman/app-query";
 import type { MarketplaceService } from "@spaceman/app-services";
-import type { SubmitMerchantStoreInput } from "@spaceman/app-types";
+import type { Store, SubmitMerchantStoreInput } from "@spaceman/app-types";
 import { useEffect, useState, type FormEvent } from "react";
 
 interface MarketplacePanelProps {
@@ -21,6 +21,31 @@ function messageFor(error: unknown): string {
   return isAppError(error)
     ? error.userMessage
     : "The merchant marketplace request failed.";
+}
+
+function storeSubmissionInput(
+  data: FormData,
+  storeId?: string,
+): SubmitMerchantStoreInput {
+  return {
+    ...(storeId === undefined ? {} : { storeId }),
+    name: String(data.get("name")),
+    category: String(data.get("category")),
+    description: String(data.get("description")),
+    address: {
+      label: String(data.get("name")),
+      formattedAddress: String(data.get("address")),
+      coordinates: {
+        latitude: Number(data.get("latitude")),
+        longitude: Number(data.get("longitude")),
+      },
+    },
+    openingHours: [],
+    minimumOrder: {
+      amountMinor: Number(data.get("minimumOrder")),
+      currency: "ZAR",
+    },
+  };
 }
 
 export function MarketplacePanel({
@@ -68,31 +93,47 @@ export function MarketplacePanel({
     }
   }
 
-  async function submitStore(event: FormEvent<HTMLFormElement>) {
+  async function submitStore(
+    event: FormEvent<HTMLFormElement>,
+    existingStore?: Store,
+  ) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     await run(async () => {
-      const storeInput: SubmitMerchantStoreInput = {
-        name: String(data.get("name")),
-        category: String(data.get("category")),
-        description: String(data.get("description")),
-        address: {
-          label: String(data.get("name")),
-          formattedAddress: String(data.get("address")),
-          coordinates: {
-            latitude: Number(data.get("latitude")),
-            longitude: Number(data.get("longitude")),
-          },
-        },
-        openingHours: [],
-        minimumOrder: {
-          amountMinor: Number(data.get("minimumOrder")),
-          currency: "ZAR",
-        },
-      };
+      const storeInput = storeSubmissionInput(data, existingStore?.id);
+      const file = data.get("cardImage");
+      if (existingStore) {
+        const media =
+          file instanceof File && file.size > 0
+            ? await service.stageMedia({
+                storeId: existingStore.id,
+                ownerId,
+                assetId: crypto.randomUUID(),
+                altText: String(data.get("cardImageAlt")),
+                ...(await prepareCatalogMediaFile(file)),
+              })
+            : undefined;
+        try {
+          await service.submitMerchantStore({
+            ...storeInput,
+            ...(media ? { cardMedia: media } : {}),
+          });
+        } catch (error) {
+          if (media) {
+            await service.cleanupMedia({
+              storeId: existingStore.id,
+              sourcePath: media.sourcePath,
+              thumbnailPath: media.thumbnailPath,
+            });
+          }
+          throw error;
+        }
+        setStoreId(existingStore.id);
+        return;
+      }
+
       const result = await service.submitMerchantStore(storeInput);
       setStoreId(result.id);
-      const file = data.get("cardImage");
       if (file instanceof File && file.size > 0) {
         const media = await service.stageMedia({
           storeId: result.id,
@@ -116,7 +157,9 @@ export function MarketplacePanel({
           throw error;
         }
       }
-    }, "Draft submitted for administrator review.");
+    }, existingStore
+      ? "Corrected store resubmitted for administrator review."
+      : "Draft submitted for administrator review.");
   }
 
   async function updateStore(event: FormEvent<HTMLFormElement>) {
@@ -208,6 +251,9 @@ export function MarketplacePanel({
   const activeStore = stores.data?.records.find(
     (store) => store.id === storeId,
   );
+  const managedStore =
+    activeStore?.approvalState === "approved" &&
+    activeStore.status === "active";
   return (
     <section className="marketplace" aria-label="Merchant marketplace">
       <p className="eyebrow">Phase 3</p>
@@ -288,7 +334,98 @@ export function MarketplacePanel({
           </button>
         </form>
 
-        {!submissionOnly && activeStore ? (
+        {activeStore?.approvalState === "rejected" ? (
+          <form
+            key={`resubmit-${activeStore.id}`}
+            onSubmit={(event) => void submitStore(event, activeStore)}
+          >
+            <h3>Correct rejected store</h3>
+            <p className="message error">
+              {activeStore.rejectionReason ??
+                "The administrator requested corrections."}
+            </p>
+            <label>
+              Name
+              <input name="name" defaultValue={activeStore.name} required />
+            </label>
+            <label>
+              Category
+              <input
+                name="category"
+                defaultValue={activeStore.category}
+                required
+              />
+            </label>
+            <label>
+              Description
+              <textarea
+                name="description"
+                defaultValue={activeStore.description}
+                maxLength={2000}
+              />
+            </label>
+            <label>
+              Address
+              <input
+                name="address"
+                defaultValue={activeStore.address.formattedAddress}
+                required
+              />
+            </label>
+            <label>
+              Latitude
+              <input
+                name="latitude"
+                type="number"
+                step="any"
+                defaultValue={activeStore.address.coordinates.latitude}
+                required
+              />
+            </label>
+            <label>
+              Longitude
+              <input
+                name="longitude"
+                type="number"
+                step="any"
+                defaultValue={activeStore.address.coordinates.longitude}
+                required
+              />
+            </label>
+            <label>
+              Minimum order (cents)
+              <input
+                name="minimumOrder"
+                type="number"
+                min="0"
+                defaultValue={activeStore.minimumOrder.amountMinor}
+                required
+              />
+            </label>
+            <label>
+              Replacement card image
+              <input
+                name="cardImage"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+              />
+            </label>
+            <label>
+              Store image alt text
+              <input
+                name="cardImageAlt"
+                defaultValue={
+                  activeStore.cardMedia?.altText ?? activeStore.name
+                }
+              />
+            </label>
+            <button disabled={busy} type="submit">
+              Resubmit corrected store
+            </button>
+          </form>
+        ) : null}
+
+        {!submissionOnly && managedStore ? (
           <form onSubmit={(event) => void updateStore(event)}>
             <h3>Update assigned store</h3>
             <label>
@@ -364,7 +501,7 @@ export function MarketplacePanel({
           </form>
         ) : null}
 
-        {!submissionOnly && activeStore ? (
+        {!submissionOnly && managedStore ? (
           <form onSubmit={(event) => void createItem(event)}>
             <h3>Add catalog item</h3>
             <label>
@@ -420,6 +557,12 @@ export function MarketplacePanel({
               {store.category} · Minimum{" "}
               {formatMoney(store.minimumOrder.amountMinor)}
             </p>
+            {store.approvalState === "rejected" ? (
+              <p>
+                {store.rejectionReason ??
+                  "The administrator requested corrections."}
+              </p>
+            ) : null}
             <button
               className="secondary"
               type="button"

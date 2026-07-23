@@ -50,7 +50,6 @@ export {
   reviewStoreSubmission,
   searchStorePlaces,
   setItemAvailability,
-  stageApiCatalogImport,
   stageCsvCatalogImport,
   stageGoogleStoreImport,
   submitMerchantStore,

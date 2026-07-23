@@ -9,6 +9,7 @@ import type {
 } from "@spaceman/app-types";
 import {
   QueryClient,
+  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
@@ -37,12 +38,14 @@ export const queryKeys = {
     ["notifications", recipientId] as const,
 };
 
-export function createSpacemanQueryClient(): QueryClient {
+export function createSpacemanQueryClient(options?: {
+  queryRetry?: boolean | number;
+}): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
         staleTime: 30_000,
-        retry: 1,
+        retry: options?.queryRetry ?? 1,
         refetchOnWindowFocus: false,
       },
       mutations: {
@@ -74,6 +77,46 @@ export function useActiveItems(
   return useQuery({
     queryKey: [...queryKeys.items(storeId ?? "none"), request ?? {}],
     queryFn: () => service.listActiveItems(storeId ?? "", request),
+    enabled: Boolean(storeId),
+  });
+}
+
+type CursorPageRequest = Omit<PageRequest, "cursor">;
+
+export function useInfiniteActiveStores(
+  service: MarketplaceService,
+  request: CursorPageRequest = {},
+) {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.stores(request), "infinite"],
+    queryFn: ({ pageParam }) =>
+      service.listActiveStores({
+        ...request,
+        ...(pageParam === undefined ? {} : { cursor: pageParam }),
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+  });
+}
+
+export function useInfiniteActiveItems(
+  service: MarketplaceService,
+  storeId: string | undefined,
+  request: CursorPageRequest = {},
+) {
+  return useInfiniteQuery({
+    queryKey: [
+      ...queryKeys.items(storeId ?? "none"),
+      request,
+      "infinite",
+    ],
+    queryFn: ({ pageParam }) =>
+      service.listActiveItems(storeId ?? "", {
+        ...request,
+        ...(pageParam === undefined ? {} : { cursor: pageParam }),
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: Boolean(storeId),
   });
 }

@@ -1,11 +1,14 @@
 import { formatMoney } from "@spaceman/app-core";
 import { isAppError } from "@spaceman/app-errors";
-import { useActiveItems, useActiveStores } from "@spaceman/app-query";
+import {
+  useInfiniteActiveItems,
+  useInfiniteActiveStores,
+} from "@spaceman/app-query";
 import type { IdentitySession } from "@spaceman/app-types";
 import { spacemanTokens } from "@spaceman/app-ui";
 import { evaluateIdentityAccess } from "@spaceman/shared/auth";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -43,10 +46,20 @@ export default function CustomerHomeScreen() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [storeId, setStoreId] = useState<string>();
-  const stores = useActiveStores(customerMarketplaceService, { limit: 50 });
-  const items = useActiveItems(customerMarketplaceService, storeId, {
-    limit: 50,
+  const stores = useInfiniteActiveStores(customerMarketplaceService, {
+    limit: 12,
   });
+  const items = useInfiniteActiveItems(customerMarketplaceService, storeId, {
+    limit: 12,
+  });
+  const storeRecords = useMemo(
+    () => stores.data?.pages.flatMap((page) => page.records) ?? [],
+    [stores.data],
+  );
+  const itemRecords = useMemo(
+    () => items.data?.pages.flatMap((page) => page.records) ?? [],
+    [items.data],
+  );
 
   useEffect(
     () =>
@@ -64,10 +77,10 @@ export default function CustomerHomeScreen() {
   );
 
   useEffect(() => {
-    const first = stores.data?.records[0];
-    if (first && !stores.data?.records.some((store) => store.id === storeId))
+    const first = storeRecords[0];
+    if (first && !storeRecords.some((store) => store.id === storeId))
       setStoreId(first.id);
-  }, [storeId, stores.data]);
+  }, [storeId, storeRecords]);
 
   async function run(action: () => Promise<unknown>, successMessage = "") {
     setBusy(true);
@@ -88,6 +101,19 @@ export default function CustomerHomeScreen() {
   }
 
   const access = evaluateIdentityAccess(session, ["customer"]);
+  const catalogFailed =
+    stores.isError ||
+    stores.isRefetchError ||
+    items.isError ||
+    items.isRefetchError;
+  const catalogHasData = storeRecords.length > 0 || itemRecords.length > 0;
+  const catalogState = catalogFailed
+    ? catalogHasData
+      ? "Cached catalog — refresh failed"
+      : "Catalog unavailable"
+    : stores.isFetching || items.isFetching
+      ? "Refreshing catalog…"
+      : "Catalog cached and current";
 
   return (
     <KeyboardAvoidingView
@@ -117,18 +143,35 @@ export default function CustomerHomeScreen() {
               color={spacemanTokens.color.brand}
             />
           ) : (
-            <Text style={styles.fresh}>Current</Text>
+            <Text
+              accessibilityLiveRegion="polite"
+              style={styles.fresh}
+            >
+              {catalogState}
+            </Text>
           )}
         </View>
-        {stores.isError ? (
+        <Button
+          disabled={stores.isFetching || items.isFetching}
+          label="Refresh catalog"
+          secondary
+          onPress={() =>
+            void Promise.all([
+              stores.refetch(),
+              ...(storeId ? [items.refetch()] : []),
+            ])
+          }
+        />
+        {catalogFailed ? (
           <Text
             accessibilityRole="alert"
             style={[styles.message, styles.error]}
           >
-            The marketplace is temporarily unavailable.
+            The marketplace refresh failed. Cached results remain visible when
+            available.
           </Text>
         ) : null}
-        {stores.data?.records.map((store) => (
+        {storeRecords.map((store) => (
           <Pressable
             accessibilityRole="button"
             key={store.id}
@@ -164,10 +207,20 @@ export default function CustomerHomeScreen() {
             </View>
           </Pressable>
         ))}
+        {stores.hasNextPage ? (
+          <Button
+            disabled={stores.isFetchingNextPage}
+            label={
+              stores.isFetchingNextPage ? "Loading stores…" : "Load more stores"
+            }
+            secondary
+            onPress={() => void stores.fetchNextPage()}
+          />
+        ) : null}
         {storeId ? (
           <View style={styles.menuSection}>
             <Text style={styles.cardTitle}>Active menu</Text>
-            {items.data?.records.map((item) => (
+            {itemRecords.map((item) => (
               <View
                 key={item.id}
                 style={[styles.itemCard, !item.available && styles.unavailable]}
@@ -194,6 +247,18 @@ export default function CustomerHomeScreen() {
                 </View>
               </View>
             ))}
+            {items.hasNextPage ? (
+              <Button
+                disabled={items.isFetchingNextPage}
+                label={
+                  items.isFetchingNextPage
+                    ? "Loading menu…"
+                    : "Load more menu items"
+                }
+                secondary
+                onPress={() => void items.fetchNextPage()}
+              />
+            ) : null}
           </View>
         ) : null}
         {steps.map((step) => (

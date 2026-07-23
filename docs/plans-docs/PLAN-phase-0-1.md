@@ -36,7 +36,7 @@
 ## Product delivery phases
 
 1. **Identity and security:** email/password customer auth, invite-based staff provisioning, profile/status/scope guards, App Check plan, dev-project rules tests.
-2. **Marketplace:** admin and merchant store/catalog management, manual store/item workflows first, then reviewed CSV/API imports; customer web/app browse active serviceable catalog.
+2. **Marketplace:** admin and merchant store/catalog management, manual store/item workflows, reviewed CSV item imports, and Google Places store staging; customer web/app browse active serviceable catalog. External JSON/HTTPS catalog API import is prohibited.
 3. **Maps, quotes, and payment:** backend-owned Google Maps validation/routes, Mabopane V1 fee rule, checkout sessions, Paystack initialization/webhook verification, and fail-closed checkout when a fee cannot be verified.
 4. **Fulfillment:** paid merchant queue, merchant confirm/prepare/ready commands, audited admin dispatch, Driver App foreground-only active-delivery location, no media proof in V1, and customer tracking without map-dependent status loss.
 5. **Operations:** recipient-scoped in-app notifications plus FCM for native apps, activities, refunds, archive/redact account workflow, settlement ledger, audit/reconciliation, and scheduled cleanup/SLA monitors.

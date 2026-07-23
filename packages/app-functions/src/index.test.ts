@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertAccountArchiveTarget,
-  assertCatalogMediaScope,
-  assertCatalogImportUrlAllowed,
   assertAssignmentVersion,
+  assertCatalogMediaScope,
   assertForegroundLocationEligibility,
   assertFulfillmentTransition,
   assertRefundReviewAllowed,
@@ -12,6 +11,7 @@ import {
   assertTrustedCommandAccess,
   assertUserManagementScope,
   assertUserStatusTransition,
+  decideMerchantStoreSubmissionAction,
   decideCatalogImportCommit,
   decidePaystackWebhookAction,
   stableCatalogImportItemId,
@@ -39,27 +39,6 @@ describe("trusted command policy", () => {
     ).toThrow();
     expect(() =>
       assertTrustedCommandAccess("retireCatalogItem", "merchant"),
-    ).toThrow();
-  });
-
-  it("allows only explicit public HTTPS catalog API hosts", () => {
-    expect(
-      assertCatalogImportUrlAllowed("https://catalog.example.com/items", [
-        "catalog.example.com",
-      ]).hostname,
-    ).toBe("catalog.example.com");
-    expect(() =>
-      assertCatalogImportUrlAllowed("http://catalog.example.com/items", [
-        "catalog.example.com",
-      ]),
-    ).toThrow();
-    expect(() =>
-      assertCatalogImportUrlAllowed("https://127.0.0.1/items", ["127.0.0.1"]),
-    ).toThrow();
-    expect(() =>
-      assertCatalogImportUrlAllowed("https://unlisted.example.com/items", [
-        "catalog.example.com",
-      ]),
     ).toThrow();
   });
 
@@ -111,6 +90,51 @@ describe("trusted command policy", () => {
     expect(() =>
       assertUserManagementScope("super_admin", "admin"),
     ).not.toThrow();
+  });
+
+  it("allows only the owner to update pending or resubmit rejected drafts", () => {
+    expect(
+      decideMerchantStoreSubmissionAction({
+        exists: false,
+        actorId: "merchant-1",
+      }),
+    ).toBe("create");
+    expect(
+      decideMerchantStoreSubmissionAction({
+        exists: true,
+        actorId: "merchant-1",
+        merchantId: "merchant-1",
+        status: "draft",
+        approvalState: "pending",
+      }),
+    ).toBe("update_pending");
+    expect(
+      decideMerchantStoreSubmissionAction({
+        exists: true,
+        actorId: "merchant-1",
+        merchantId: "merchant-1",
+        status: "draft",
+        approvalState: "rejected",
+      }),
+    ).toBe("resubmit_rejected");
+    expect(() =>
+      decideMerchantStoreSubmissionAction({
+        exists: true,
+        actorId: "merchant-1",
+        merchantId: "merchant-2",
+        status: "draft",
+        approvalState: "rejected",
+      }),
+    ).toThrow();
+    expect(() =>
+      decideMerchantStoreSubmissionAction({
+        exists: true,
+        actorId: "merchant-1",
+        merchantId: "merchant-1",
+        status: "active",
+        approvalState: "approved",
+      }),
+    ).toThrow();
   });
 
   it("rejects replayed and terminal user-status changes", () => {

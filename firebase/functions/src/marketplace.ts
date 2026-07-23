@@ -1,6 +1,4 @@
 import { createHash } from "node:crypto";
-import { promises as dns } from "node:dns";
-import { isIP } from "node:net";
 
 import {
   isAppRole,
@@ -10,10 +8,10 @@ import {
 } from "@spaceman/app-core";
 import { AppError } from "@spaceman/app-errors";
 import {
-  assertCatalogImportUrlAllowed,
   assertCatalogMediaScope,
   assertStoreScope,
   assertTrustedCommandAccess,
+  decideMerchantStoreSubmissionAction,
   decideCatalogImportCommit,
   stableCatalogImportItemId,
 } from "@spaceman/app-functions";
@@ -25,7 +23,6 @@ import {
   retireCatalogItemInputSchema,
   reviewStoreSubmissionInputSchema,
   setItemAvailabilityInputSchema,
-  stageApiCatalogImportInputSchema,
   stageCsvCatalogImportInputSchema,
   stageGoogleStoreImportInputSchema,
   storePlaceSearchInputSchema,
@@ -54,7 +51,6 @@ const authentication = getAuth();
 const storage = getStorage();
 const functionRegion = process.env.SPACEMAN_FUNCTIONS_REGION ?? "africa-south1";
 const googleMapsServerApiKey = defineSecret("GOOGLE_MAPS_SERVER_API_KEY");
-const catalogImportAllowedHosts = defineSecret("CATALOG_IMPORT_ALLOWED_HOSTS");
 
 type Actor = {
   uid: string;
@@ -195,6 +191,32 @@ function requireStoreScope(actor: Actor, storeId: string): void {
   } catch (error) {
     if (error instanceof AppError)
       throw new HttpsError("permission-denied", error.userMessage);
+    throw error;
+  }
+}
+
+function merchantSubmissionAction(
+  actor: Actor,
+  exists: boolean,
+  store: Record<string, unknown>,
+) {
+  try {
+    return decideMerchantStoreSubmissionAction({
+      exists,
+      actorId: actor.uid,
+      merchantId: store.merchantId,
+      status: store.status,
+      approvalState: store.approvalState,
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw new HttpsError(
+        error.code === "authorization_denied"
+          ? "permission-denied"
+          : "failed-precondition",
+        error.userMessage,
+      );
+    }
     throw error;
   }
 }
@@ -575,18 +597,7 @@ export const submitMerchantStore = onCall(
     const existingStore = existingSnapshot.exists
       ? asRecord(existingSnapshot.data())
       : {};
-    if (existingSnapshot.exists) {
-      const existing = existingStore;
-      if (
-        existing.merchantId !== actor.uid ||
-        existing.approvalState !== "pending"
-      ) {
-        throw new HttpsError(
-          "permission-denied",
-          "Only the owner may update a pending store submission.",
-        );
-      }
-    }
+    merchantSubmissionAction(actor, existingSnapshot.exists, existingStore);
     const cardMedia = await preparePublishedMedia(
       input.cardMedia,
       actor,
@@ -604,46 +615,66 @@ export const submitMerchantStore = onCall(
       existingStore.heroMedia,
     );
     const auditReference = database.collection("auditLogs").doc();
-    const batch = database.batch();
-    batch.set(
-      storeReference,
-      {
-        id: storeReference.id,
-        merchantId: actor.uid,
-        name: input.name,
-        searchName: normalizeSearchText(input.name),
-        category: input.category,
-        description: input.description,
-        status: "draft",
-        approvalState: "pending",
-        source: "merchant",
-        deliveryZoneIds: [],
-        address: input.address,
-        openingHours: input.openingHours,
-        openForOrders: false,
-        minimumOrder: input.minimumOrder,
-        ...(cardMedia.media === undefined
-          ? {}
-          : { cardMedia: cardMedia.media }),
-        ...(heroMedia.media === undefined
-          ? {}
-          : { heroMedia: heroMedia.media }),
-        ...metadata(actor, existingSnapshot.exists),
-      },
-      { merge: true },
-    );
-    batch.create(
-      auditReference,
-      auditRecord(
-        auditReference,
-        actor,
-        "merchant_store_submitted",
-        "store",
-        storeReference.id,
-      ),
-    );
     await writeWithPublishedMedia([cardMedia, heroMedia], async () => {
-      await batch.commit();
+      await database.runTransaction(async (transaction) => {
+        const currentSnapshot = await transaction.get(storeReference);
+        const currentStore = currentSnapshot.exists
+          ? asRecord(currentSnapshot.data())
+          : {};
+        const action = merchantSubmissionAction(
+          actor,
+          currentSnapshot.exists,
+          currentStore,
+        );
+        transaction.set(
+          storeReference,
+          {
+            id: storeReference.id,
+            merchantId: actor.uid,
+            name: input.name,
+            searchName: normalizeSearchText(input.name),
+            category: input.category,
+            description: input.description,
+            status: "draft",
+            approvalState: "pending",
+            source: "merchant",
+            deliveryZoneIds: [],
+            address: input.address,
+            openingHours: input.openingHours,
+            openForOrders: false,
+            minimumOrder: input.minimumOrder,
+            ...(cardMedia.media === undefined
+              ? {}
+              : { cardMedia: cardMedia.media }),
+            ...(heroMedia.media === undefined
+              ? {}
+              : { heroMedia: heroMedia.media }),
+            ...(currentSnapshot.exists
+              ? {
+                  rejectionReason: FieldValue.delete(),
+                  reviewedAt: FieldValue.delete(),
+                  reviewedBy: FieldValue.delete(),
+                }
+              : {}),
+            ...metadata(actor, currentSnapshot.exists),
+          },
+          { merge: true },
+        );
+        transaction.create(
+          auditReference,
+          auditRecord(
+            auditReference,
+            actor,
+            action === "create"
+              ? "merchant_store_submitted"
+              : action === "resubmit_rejected"
+                ? "merchant_store_resubmitted"
+                : "merchant_store_submission_updated",
+            "store",
+            storeReference.id,
+          ),
+        );
+      });
     });
     return { id: storeReference.id, acceptedAt: new Date().toISOString() };
   },
@@ -1215,8 +1246,6 @@ function normalizeExternalRow(
 async function stageItemRows(
   actor: Actor,
   storeId: string,
-  sourceType: "catalog_csv" | "catalog_api",
-  sourceReference: string | undefined,
   rawRows: Record<string, unknown>[],
   contentHash: string,
 ) {
@@ -1296,8 +1325,7 @@ async function stageItemRows(
     id: batchReference.id,
     storeId,
     requestedBy: actor.uid,
-    sourceType,
-    ...(sourceReference === undefined ? {} : { sourceReference }),
+    sourceType: "catalog_csv",
     status: acceptedRows > 0 ? "ready" : "failed",
     contentHash,
     totalRows: rows.length,
@@ -1337,7 +1365,7 @@ async function stageItemRows(
               available: row.normalized.available,
               categoryLabel: row.normalized.categoryLabel,
               sortOrder: row.rowNumber,
-              source: sourceType,
+              source: "catalog_csv",
               ...(row.normalized.sourceId === undefined
                 ? {}
                 : { sourceId: row.normalized.sourceId }),
@@ -1366,101 +1394,7 @@ export const stageCsvCatalogImport = onCall(
       max_record_size: 32_000,
     }) as Record<string, unknown>[];
     const contentHash = createHash("sha256").update(input.csv).digest("hex");
-    const id = await stageItemRows(
-      actor,
-      input.storeId,
-      "catalog_csv",
-      undefined,
-      rows,
-      contentHash,
-    );
-    return { id, acceptedAt: new Date().toISOString() };
-  },
-);
-
-function privateAddress(address: string): boolean {
-  if (isIP(address) === 6) {
-    const normalized = address.toLowerCase();
-    return (
-      normalized === "::1" ||
-      normalized.startsWith("fc") ||
-      normalized.startsWith("fd") ||
-      normalized.startsWith("fe80:")
-    );
-  }
-  return /^10\.|^127\.|^169\.254\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(
-    address,
-  );
-}
-
-export const stageApiCatalogImport = onCall(
-  { region: functionRegion, secrets: [catalogImportAllowedHosts] },
-  async (request) => {
-    const actor = await requireActor(request);
-    requireCommand(actor, "stageApiCatalogImport");
-    const input = parseInput(stageApiCatalogImportInputSchema, request.data);
-    const allowedHosts = catalogImportAllowedHosts
-      .value()
-      .split(",")
-      .filter(Boolean);
-    let url: URL;
-    try {
-      url = assertCatalogImportUrlAllowed(input.url, allowedHosts);
-    } catch (error) {
-      if (error instanceof AppError)
-        throw new HttpsError("permission-denied", error.userMessage);
-      throw error;
-    }
-    const addresses = await dns.lookup(url.hostname, {
-      all: true,
-      verbatim: true,
-    });
-    if (
-      addresses.length === 0 ||
-      addresses.some(({ address }) => privateAddress(address))
-    ) {
-      throw new HttpsError(
-        "permission-denied",
-        "The catalog source resolves to a private network.",
-      );
-    }
-    const response = await fetch(url, {
-      headers: { Accept: "application/json" },
-      redirect: "error",
-      signal: AbortSignal.timeout(8_000),
-    });
-    const contentLength = Number(response.headers.get("content-length") ?? "0");
-    if (!response.ok || contentLength > 1_000_000) {
-      throw new HttpsError(
-        "unavailable",
-        "The approved catalog API response is unavailable or too large.",
-      );
-    }
-    const body = await response.text();
-    if (body.length > 1_000_000)
-      throw new HttpsError(
-        "resource-exhausted",
-        "Catalog API response is too large.",
-      );
-    const payload: unknown = JSON.parse(body);
-    const rawRows = Array.isArray(payload)
-      ? payload
-      : (asRecord(payload).items ?? asRecord(payload).products);
-    if (!Array.isArray(rawRows))
-      throw new HttpsError(
-        "invalid-argument",
-        "Catalog API must return an item array.",
-      );
-    const rows = rawRows.map((value) => asRecord(value));
-    const contentHash = createHash("sha256").update(body).digest("hex");
-    const id = await stageItemRows(
-      actor,
-      input.storeId,
-      "catalog_api",
-      url.origin,
-      rows,
-      contentHash,
-    );
+    const id = await stageItemRows(actor, input.storeId, rows, contentHash);
     return { id, acceptedAt: new Date().toISOString() };
   },
 );

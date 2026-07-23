@@ -10,9 +10,12 @@ service accounts, access tokens, Firebase config contents, or generated test
 accounts. Testing, review, commits, and pushes are manual.
 
 Phase 2 is complete. Phase 3 source, deployment, Playwright, and self-cleaning
-development-live work pass, but Phase 3 remains 0% accepted until the
-owner-operated five-app/manual matrix below passes. Do not mark Phase 3
-complete from source, deployment, or automated evidence alone.
+development-live work have passed their recorded gates. The external
+JSON/HTTPS catalog API workflow was subsequently removed; CSV selected-row
+commit and Google Places store staging remain. Phase 3 remains 0% accepted
+until the narrowed live matrix and the owner-operated five-app/manual matrix
+below pass. Do not mark Phase 3 complete from source, deployment, or automated
+evidence alone.
 
 ## 0. Required security action before payment work
 
@@ -102,7 +105,7 @@ corepack pnpm exec firebase functions:list --project spacemansystemsbackend
 ```
 
 Stop if any command selects production or an unexpected project. The six
-accepted Phase 2 identity Functions and 14 Phase 3 marketplace Functions must
+accepted Phase 2 identity Functions and 13 Phase 3 marketplace Functions must
 be listed in `africa-south1`.
 
 Verify ignored local inputs without printing them. Run from
@@ -232,28 +235,35 @@ interactively. Run the interactive storage command from
 env -u DEBUG corepack pnpm exec firebase functions:secrets:set GOOGLE_MAPS_SERVER_API_KEY --project spacemansystemsbackend
 ```
 
-The development allowlist currently includes the disposable JSON fixture host.
-Only when the reviewed allowlist must change, store the complete
-comma-separated HTTPS host list interactively. Run from
-`/home/mmekwa/Desktop/projects/spacemansystems`:
-
-```sh
-env -u DEBUG corepack pnpm exec firebase functions:secrets:set CATALOG_IMPORT_ALLOWED_HOSTS --project spacemansystemsbackend
-```
-
 Confirm enabled secret versions without reading their values. Run from
 `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
 gcloud secrets versions list GOOGLE_MAPS_SERVER_API_KEY --project=spacemansystemsbackend --format='table(name,state,createTime)'
-gcloud secrets versions list CATALOG_IMPORT_ALLOWED_HOSTS --project=spacemansystemsbackend --format='table(name,state,createTime)'
+```
+
+External JSON/HTTPS catalog API import is prohibited. Its callable and
+`CATALOG_IMPORT_ALLOWED_HOSTS` secret must remain absent. Verify that state
+without reading any secret value. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+if corepack pnpm exec firebase functions:list --project spacemansystemsbackend | rg -q 'stageApiCatalogImport'; then
+  echo "ERROR: prohibited API catalog callable still exists"
+  exit 1
+fi
+if gcloud secrets describe CATALOG_IMPORT_ALLOWED_HOSTS --project=spacemansystemsbackend >/dev/null 2>&1; then
+  echo "ERROR: prohibited catalog host-allowlist secret still exists"
+  exit 1
+fi
+echo "Prohibited API catalog cloud resources are absent."
 ```
 
 Confirm every planned marketplace export exists before deployment. Run from
 `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
-rg -n 'export const (upsertStore|submitMerchantStore|reviewStoreSubmission|updateMerchantStore|upsertItem|setItemAvailability|retireCatalogItem|searchStorePlaces|stageGoogleStoreImport|stageCsvCatalogImport|stageApiCatalogImport|commitCatalogImport|cancelCatalogImport|cleanupCatalogMedia)' firebase/functions/src/marketplace.ts
+rg -n 'export const (upsertStore|submitMerchantStore|reviewStoreSubmission|updateMerchantStore|upsertItem|setItemAvailability|retireCatalogItem|searchStorePlaces|stageGoogleStoreImport|stageCsvCatalogImport|commitCatalogImport|cancelCatalogImport|cleanupCatalogMedia)' firebase/functions/src/marketplace.ts
 ```
 
 Build the deployable Functions bundle. Run from
@@ -268,7 +278,7 @@ from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
 env -u DEBUG corepack pnpm exec firebase deploy --only firestore:rules,firestore:indexes,storage --project spacemansystemsbackend
-env -u DEBUG FUNCTIONS_DISCOVERY_TIMEOUT=60000 corepack pnpm exec firebase deploy --only functions:upsertStore,functions:submitMerchantStore,functions:reviewStoreSubmission,functions:updateMerchantStore,functions:upsertItem,functions:setItemAvailability,functions:retireCatalogItem,functions:searchStorePlaces,functions:stageGoogleStoreImport,functions:stageCsvCatalogImport,functions:stageApiCatalogImport,functions:commitCatalogImport,functions:cancelCatalogImport,functions:cleanupCatalogMedia --project spacemansystemsbackend
+env -u DEBUG FUNCTIONS_DISCOVERY_TIMEOUT=60000 corepack pnpm exec firebase deploy --only functions:upsertStore,functions:submitMerchantStore,functions:reviewStoreSubmission,functions:updateMerchantStore,functions:upsertItem,functions:setItemAvailability,functions:retireCatalogItem,functions:searchStorePlaces,functions:stageGoogleStoreImport,functions:stageCsvCatalogImport,functions:commitCatalogImport,functions:cancelCatalogImport,functions:cleanupCatalogMedia --project spacemansystemsbackend
 ```
 
 Confirm the expected functions and region. Run from
@@ -280,11 +290,11 @@ corepack pnpm exec firebase functions:list --project spacemansystemsbackend
 
 Firebase callable Functions require public HTTP transport invocation; the
 handler then enforces Firebase Auth, canonical role/status, and store scope.
-First inspect the exact 14 Cloud Run policies. Run from
+First inspect the exact 13 Cloud Run policies. Run from
 `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
-for phase3_service in upsertstore submitmerchantstore reviewstoresubmission updatemerchantstore upsertitem setitemavailability retirecatalogitem searchstoreplaces stagegooglestoreimport stagecsvcatalogimport stageapicatalogimport commitcatalogimport cancelcatalogimport cleanupcatalogmedia
+for phase3_service in upsertstore submitmerchantstore reviewstoresubmission updatemerchantstore upsertitem setitemavailability retirecatalogitem searchstoreplaces stagegooglestoreimport stagecsvcatalogimport commitcatalogimport cancelcatalogimport cleanupcatalogmedia
 do
   gcloud run services get-iam-policy "$phase3_service" --project=spacemansystemsbackend --region=africa-south1 --flatten='bindings[].members' --filter='bindings.role:roles/run.invoker AND bindings.members:allUsers' --format='table(bindings.role,bindings.members)'
 done
@@ -295,7 +305,7 @@ change. Only after that approval, grant the transport binding to exactly those
 services. Run from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
-for phase3_service in upsertstore submitmerchantstore reviewstoresubmission updatemerchantstore upsertitem setitemavailability retirecatalogitem searchstoreplaces stagegooglestoreimport stagecsvcatalogimport stageapicatalogimport commitcatalogimport cancelcatalogimport cleanupcatalogmedia
+for phase3_service in upsertstore submitmerchantstore reviewstoresubmission updatemerchantstore upsertitem setitemavailability retirecatalogitem searchstoreplaces stagegooglestoreimport stagecsvcatalogimport commitcatalogimport cancelcatalogimport cleanupcatalogmedia
 do
   gcloud run services add-iam-policy-binding "$phase3_service" --project=spacemansystemsbackend --region=africa-south1 --member=allUsers --role=roles/run.invoker --quiet
 done
@@ -308,10 +318,9 @@ Cloud Run service.
 ## 9. Run the self-cleaning Phase 3 marketplace matrix
 
 Application Default Credentials must belong to an account authorized for the
-development project. The checked-in script defaults to the allowlisted
-`dummyjson.com` disposable product fixture and a Mabopane Places query. Override
-either only with a reviewed non-sensitive fixture and an already allowlisted
-host. Run from `/home/mmekwa/Desktop/projects/spacemansystems`:
+development project. The checked-in script uses a Mabopane Places query.
+Override that query only with a reviewed non-sensitive development location.
+Run from `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
 (
@@ -326,9 +335,9 @@ The script must use a random exact `testRunId`, report every case as passed,
 and verify zero tagged Firestore, Firebase Auth, import-row, audit, and Storage
 residue after cleanup. Required cases are manual store/item publication,
 merchant draft approval, rejection, cross-store denial, active-parent public
-reads, Google staging, CSV/API selected-row commit, import replay, invalid API
-target, invalid media, retirement, and suspended/archived denial. Never accept
-a run that skips cleanup verification.
+reads, Google staging, CSV selected-row commit, import replay, invalid media,
+retirement, and suspended/archived denial. Never accept a run that skips
+cleanup verification.
 
 If the first callable returns HTTP 401, recheck the exact per-service Cloud Run
 invoker policies in section 8. Do not weaken Firestore/Storage Rules or remove
@@ -373,9 +382,9 @@ Complete this Phase 2 regression and Phase 3 marketplace matrix:
    Update store presentation/hours/open state and item presentation, price,
    availability, category, sort, and media. Attempt another store ID and
    confirm denial.
-6. From Admin Web, preview CSV and approved-API items, select only some rows,
-   commit them, and rerun the same import. Confirm unchecked rows stay absent
-   and replay creates no duplicates.
+6. From Admin Web, preview CSV items, select only some rows, commit them, and
+   rerun the same CSV. Confirm unchecked rows stay absent and replay creates no
+   duplicates. Confirm no API catalog import control is present.
 7. Return to Customer Web as guest and authenticated customer. Confirm the same
    active catalog, thumbnails, unavailable-item state, pagination, stale/error
    messaging, and no checkout/serviceability claim.
@@ -531,10 +540,20 @@ performs any push manually. Production deployment remains blocked until Phase
   `phase3_marketplace_1784749355621_646a3a94` passed all 12 marketplace,
   query, provider, import, scope, media, retirement, and inactive-user cases;
   exact cleanup verified zero Auth, Firestore, import-row, audit, and Storage
-  residue.
+  residue. This is historical pre-removal evidence; its API-import case is no
+  longer part of the approved product or current matrix.
 - 2026-07-23: documentation, type-check, lint, unit/contract tests, all builds,
   Expo's online compatibility check, both Android exports, and four Playwright
   Chromium scenarios passed after removing the native UI automation harness.
+- 2026-07-23: external JSON/HTTPS catalog API import was removed from source
+  and the development backend. `stageApiCatalogImport`, its backing Cloud Run
+  service, and `CATALOG_IMPORT_ALLOWED_HOSTS` are absent. The 13 retained
+  callables were redeployed from the narrowed bundle. Authoritative post-deploy
+  run `phase3_marketplace_1784796233777_d40dfad0` passed all 11 current cases
+  and verified zero Auth, Firestore, import-row, audit, and Storage residue.
+  Documentation, type-check, lint, all tests/builds, four Playwright scenarios,
+  both Expo compatibility checks, and fresh Customer/Driver Android exports
+  also passed.
 - Remaining Phase 3 action: the project owner must complete sections 10 through
   12, including both preview-APK device checks, and record redacted
   five-app/manual evidence before changing Phase 3 from 0% accepted.

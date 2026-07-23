@@ -27,7 +27,6 @@ export const TRUSTED_COMMANDS = [
   "searchStorePlaces",
   "stageGoogleStoreImport",
   "stageCsvCatalogImport",
-  "stageApiCatalogImport",
   "commitCatalogImport",
   "cancelCatalogImport",
   "cleanupCatalogMedia",
@@ -61,7 +60,6 @@ const commandRoles: Readonly<Record<TrustedCommand, readonly AppRole[]>> = {
   searchStorePlaces: ["admin", "super_admin"],
   stageGoogleStoreImport: ["admin", "super_admin"],
   stageCsvCatalogImport: ["admin", "super_admin"],
-  stageApiCatalogImport: ["admin", "super_admin"],
   commitCatalogImport: ["admin", "super_admin"],
   cancelCatalogImport: ["admin", "super_admin"],
   cleanupCatalogMedia: ["merchant", "admin", "super_admin"],
@@ -161,6 +159,47 @@ export function assertStoreScope(
       userMessage: "You do not have access to that store.",
     });
   }
+}
+
+export type MerchantStoreSubmissionAction =
+  | "create"
+  | "update_pending"
+  | "resubmit_rejected";
+
+export function decideMerchantStoreSubmissionAction(input: {
+  exists: boolean;
+  actorId: string;
+  merchantId?: unknown;
+  status?: unknown;
+  approvalState?: unknown;
+}): MerchantStoreSubmissionAction {
+  if (!input.exists) return "create";
+  if (input.merchantId !== input.actorId) {
+    throw new AppError({
+      code: "authorization_denied",
+      source: "app-functions/merchant-store-submission",
+      message: "The merchant does not own this store submission.",
+      userMessage: "You do not have access to that store submission.",
+    });
+  }
+  if (input.status !== "draft") {
+    throw new AppError({
+      code: "precondition_failed",
+      source: "app-functions/merchant-store-submission",
+      message: "Only a draft store submission may be updated.",
+      userMessage:
+        "Only a draft store submission can be corrected and resubmitted.",
+    });
+  }
+  if (input.approvalState === "pending") return "update_pending";
+  if (input.approvalState === "rejected") return "resubmit_rejected";
+  throw new AppError({
+    code: "precondition_failed",
+    source: "app-functions/merchant-store-submission",
+    message: "Only a pending or rejected store submission may be updated.",
+    userMessage:
+      "Only a pending or rejected store submission can be corrected.",
+  });
 }
 
 export function assertUserManagementScope(
@@ -321,58 +360,6 @@ export function assertAccountArchiveTarget(
 
 export function parseScopedTestRunId(value: unknown): string {
   return testRunIdSchema.parse(value);
-}
-
-const privateIpv4Patterns = [
-  /^10\./,
-  /^127\./,
-  /^169\.254\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-];
-
-export function assertCatalogImportUrlAllowed(
-  value: string,
-  allowedHosts: readonly string[],
-): URL {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch (error) {
-    throw new AppError({
-      code: "invalid_input",
-      source: "app-functions/catalog-import-url",
-      message: "The catalog API URL is invalid.",
-      userMessage: "Enter a valid HTTPS catalog API URL.",
-      cause: error,
-    });
-  }
-
-  const hostname = url.hostname.toLocaleLowerCase("en-ZA");
-  const normalizedAllowlist = allowedHosts.map((host) =>
-    host.trim().toLocaleLowerCase("en-ZA"),
-  );
-  const privateHost =
-    hostname === "localhost" ||
-    hostname === "::1" ||
-    hostname.endsWith(".local") ||
-    privateIpv4Patterns.some((pattern) => pattern.test(hostname));
-  if (
-    url.protocol !== "https:" ||
-    privateHost ||
-    !normalizedAllowlist.includes(hostname)
-  ) {
-    throw new AppError({
-      code: "authorization_denied",
-      source: "app-functions/catalog-import-url",
-      message: `Catalog API host ${hostname} is not allowed.`,
-      userMessage: "That catalog source is not approved for import.",
-    });
-  }
-
-  url.username = "";
-  url.password = "";
-  return url;
 }
 
 export type CatalogImportCommitAction = "apply" | "replay";

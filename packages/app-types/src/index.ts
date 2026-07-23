@@ -80,7 +80,7 @@ export type StoreStatus = "draft" | "active" | "suspended" | "archived";
 export type ItemStatus = "draft" | "active" | "hidden" | "archived";
 export type StoreApprovalState = "pending" | "approved" | "rejected";
 export type CatalogSource =
-  "manual" | "merchant" | "google_places" | "catalog_csv" | "catalog_api";
+  "manual" | "merchant" | "google_places" | "catalog_csv";
 
 export interface CatalogMedia {
   sourcePath: string;
@@ -119,6 +119,7 @@ export interface Store extends DocumentMetadata {
   cardMedia?: CatalogMedia;
   heroMedia?: CatalogMedia;
   imageUrl?: string;
+  rejectionReason?: string;
 }
 
 export interface Item extends DocumentMetadata {
@@ -362,7 +363,7 @@ export interface ImportBatch extends DocumentMetadata {
   id: string;
   storeId: string;
   requestedBy: string;
-  sourceType: "google_places" | "catalog_csv" | "catalog_api";
+  sourceType: "google_places" | "catalog_csv";
   sourceReference?: string;
   status: ImportBatchStatus;
   contentHash: string;
@@ -492,7 +493,7 @@ export interface UpsertItemInput {
   sortOrder?: number;
   source?: Extract<
     CatalogSource,
-    "manual" | "merchant" | "catalog_csv" | "catalog_api"
+    "manual" | "merchant" | "catalog_csv"
   >;
   sourceId?: string;
   importBatchId?: string;
@@ -532,11 +533,6 @@ export interface StageGoogleStoreImportInput {
 export interface StageCsvCatalogImportInput {
   storeId: string;
   csv: string;
-}
-
-export interface StageApiCatalogImportInput {
-  storeId: string;
-  url: string;
 }
 
 export interface CommitCatalogImportInput {

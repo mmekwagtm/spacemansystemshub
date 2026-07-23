@@ -450,4 +450,84 @@ mmekwa@mmekwa-L1420:~/Desktop/projects/spacemansystems$ (
   "suspendedStaleTokenDenied": "passed"
 }
 Live marketplace fixture cleanup completed and verified.
+
+
+2026-07-23 owner-authorized Playwright continuation matrix
+
+Working directory: /home/mmekwa/Desktop/projects/spacemansystems
+
+> node node_modules/@playwright/test/cli.js test tests/web-e2e/phase3-live-continuation.spec.ts --config=playwright.config.ts
+
+Persisted continuation matrix: 1 passed (1.4m)
+Final Customer Web visibility/pagination/current-state matrix: 1 passed (44.5s)
+
+Covered: API UI absence, manual media, CSV selected-row commit/replay,
+Google Places staged/approved state, merchant review and scoped edit/denial,
+guest/authenticated Customer Web, unavailable presentation, retired-item and
+suspended-parent hiding, unrelated catalog retention, and section-only
+screenshots.
+
+Exact named Playwright fixtures were intentionally retained. No broad cleanup
+was run. Deterministic Firestore transport-failure injection remains an
+explicit Playwright fixme because the current Web SDK transport did not expose
+a reliably routable failure in this harness.
+
 mmekwa@mmekwa-L1420:~/Desktop/projects/spacemansystems$
+
+
+
+
+
+2026-07-23 post-removal live marketplace matrix
+
+The external JSON/HTTPS catalog API workflow had been removed from current
+source and the development backend. The retained matrix covers CSV
+selected-row commit/replay and Google Places store staging.
+
+Working directory: /home/mmekwa/Desktop/projects/spacemansystems
+
+> @spaceman/firebase-functions@0.1.0 test:marketplace:live /home/mmekwa/Desktop/projects/spacemansystems/firebase/functions
+> node scripts/live-marketplace.mjs
+
+{
+  "testRunId": "phase3_marketplace_1784794259955_759495df",
+  "manualStoreAndItemPublication": "passed",
+  "publicActiveAndUnavailableReads": "passed",
+  "publicSearchAndPendingMerchantQueries": "passed",
+  "inactiveParentAndRetiredItemDenied": "passed",
+  "directMarketplaceWriteDenied": "passed",
+  "merchantApprovalRejectionAndScope": "passed",
+  "crossStoreCommandsDenied": "passed",
+  "csvPreviewSelectionAndReplay": "passed",
+  "googlePlacesStoreStaging": "passed",
+  "validInvalidAndPublishedMedia": "passed",
+  "suspendedStaleTokenDenied": "passed"
+}
+Live marketplace fixture cleanup completed and verified.
+
+
+2026-07-23 authoritative post-deploy CSV/Google-only matrix
+
+All 13 approved marketplace callables were redeployed from the validated
+narrowed Functions bundle before this run.
+
+Working directory: /home/mmekwa/Desktop/projects/spacemansystems
+
+> @spaceman/firebase-functions@0.1.0 test:marketplace:live /home/mmekwa/Desktop/projects/spacemansystems/firebase/functions
+> node scripts/live-marketplace.mjs
+
+{
+  "testRunId": "phase3_marketplace_1784796233777_d40dfad0",
+  "manualStoreAndItemPublication": "passed",
+  "publicActiveAndUnavailableReads": "passed",
+  "publicSearchAndPendingMerchantQueries": "passed",
+  "inactiveParentAndRetiredItemDenied": "passed",
+  "directMarketplaceWriteDenied": "passed",
+  "merchantApprovalRejectionAndScope": "passed",
+  "crossStoreCommandsDenied": "passed",
+  "csvPreviewSelectionAndReplay": "passed",
+  "googlePlacesStoreStaging": "passed",
+  "validInvalidAndPublishedMedia": "passed",
+  "suspendedStaleTokenDenied": "passed"
+}
+Live marketplace fixture cleanup completed and verified.

@@ -11,7 +11,7 @@ without explicit approval.
 
 - Project `spacemansystemsbackend` has email/password Authentication, a
   Standard Firestore database, the default Firebase Storage bucket, the six
-  Phase 2 identity Functions, and the 14 Phase 3 marketplace Functions in
+  Phase 2 identity Functions, and the 13 Phase 3 marketplace Functions in
   `africa-south1`.
 - All five ignored `.env.local` files select that project and region.
 - Customer App and Driver App have app-specific Android packages and local,
@@ -21,12 +21,13 @@ without explicit approval.
   development. Storage permits only scoped catalog staging writes and active
   published catalog reads; unrelated paths remain denied.
 - The Firebase callable transport `roles/run.invoker`/`allUsers` binding is
-  owner-approved and applied to exactly the 14 Phase 3 Cloud Run services.
+  owner-approved and applied to exactly the 13 Phase 3 Cloud Run services.
   Each handler still enforces Firebase Auth and canonical role/status/scope.
 - Places API is enabled only for server-side store search/staging. Its
   development key is API-restricted and stored in Secret Manager as
-  `GOOGLE_MAPS_SERVER_API_KEY`. The allowlisted HTTPS item-import hosts are
-  stored as `CATALOG_IMPORT_ALLOWED_HOSTS`. Neither secret is a client input.
+  `GOOGLE_MAPS_SERVER_API_KEY`. It is not a client input. External JSON/HTTPS
+  catalog import and its former host-allowlist secret are prohibited and
+  removed.
 - Routes/serviceability Maps APIs, FCM delivery, EAS production channels, and
   production environment configuration remain later-phase work. Development
   EAS projects are linked for Customer App and Driver App, with development

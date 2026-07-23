@@ -13,9 +13,16 @@ describe("customer app foundation", () => {
       resolve(process.cwd(), "app/index.tsx"),
       "utf8",
     );
-    expect(source).toContain("useActiveStores(customerMarketplaceService");
-    expect(source).toContain("useActiveItems(customerMarketplaceService");
-    expect(source).toMatch(/limit:\s*50/g);
+    expect(source).toContain(
+      "useInfiniteActiveStores(customerMarketplaceService",
+    );
+    expect(source).toContain(
+      "useInfiniteActiveItems(customerMarketplaceService",
+    );
+    expect(source).toContain("Load more stores");
+    expect(source).toContain("Load more menu items");
+    expect(source).toContain("Cached catalog — refresh failed");
+    expect(source).toContain("Refresh catalog");
     expect(source).toContain("Temporarily unavailable");
     expect(source).toContain("thumbnailUrl");
   });

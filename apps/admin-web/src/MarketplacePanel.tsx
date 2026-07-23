@@ -186,19 +186,6 @@ export function MarketplacePanel({ ownerId, service }: MarketplacePanelProps) {
     }, "CSV normalized. Review and select rows before commit.");
   }
 
-  async function stageApi(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!storeId) return;
-    const data = new FormData(event.currentTarget);
-    await run(async () => {
-      const result = await service.stageApiImport({
-        storeId,
-        url: String(data.get("url")),
-      });
-      setBatchId(result.id);
-    }, "API catalog normalized. Review rows before commit.");
-  }
-
   async function searchPlaces(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -533,21 +520,6 @@ export function MarketplacePanel({ ownerId, service }: MarketplacePanelProps) {
           </label>
           <button disabled={busy || !storeId} type="submit">
             Stage CSV
-          </button>
-        </form>
-        <form onSubmit={(event) => void stageApi(event)}>
-          <h3>Allowlisted API import</h3>
-          <label>
-            HTTPS JSON URL
-            <input
-              name="url"
-              type="url"
-              placeholder="https://approved.example/catalog.json"
-              required
-            />
-          </label>
-          <button disabled={busy || !storeId} type="submit">
-            Stage API
           </button>
         </form>
       </div>

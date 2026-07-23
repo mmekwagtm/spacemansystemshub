@@ -15,7 +15,7 @@ const service = {
 } as unknown as MarketplaceService;
 
 describe("Admin marketplace", () => {
-  it("exposes trusted manual, Google, CSV, and API workflows", async () => {
+  it("exposes trusted manual, Google, and CSV workflows", async () => {
     render(
       <QueryClientProvider client={createSpacemanQueryClient()}>
         <MarketplacePanel ownerId="admin-1" service={service} />
@@ -31,6 +31,8 @@ describe("Admin marketplace", () => {
       screen.getByRole("button", { name: "Search places" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Stage CSV" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Stage API" })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Stage API" }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -8,7 +8,7 @@ overall accepted progress remains **37.5%**. A reviewed implementation commit
 does not replace the owner-operated five-app/manual matrix.
 
 The owner explicitly approved the Firebase callable transport
-`roles/run.invoker` binding to `allUsers` on exactly the 14 Phase 3 Cloud Run
+`roles/run.invoker` binding to `allUsers` on exactly the 13 Phase 3 Cloud Run
 services. The binding is applied; application authentication, canonical
 role/status, and store-scope authorization remain enforced inside each
 callable. No unrelated service or project-wide IAM role was changed.
@@ -22,8 +22,8 @@ callable. No unrelated service or project-wide IAM role was changed.
 - Client-safe services and TanStack Query providers/hooks with bounded page
   sizes and targeted invalidation.
 - Trusted store submission/review/update, item upsert/availability/retirement,
-  Google/CSV/API staging, selected idempotent import commit/cancel, and exact
-  media cleanup callables.
+  Google store staging, CSV item staging, selected idempotent import
+  commit/cancel, and exact media cleanup callables.
 - Scoped Firestore/Storage Rules and marketplace composite indexes.
 - Admin, Merchant, Customer Web, and Customer App marketplace interfaces.
   Driver App remains regression-only.
@@ -43,9 +43,8 @@ callable. No unrelated service or project-wide IAM role was changed.
 - Repository tests verify search normalization, page-size clamping, cursor
   behavior boundaries, and every bounded filtered query's index signature.
 - Marketplace unit/contract coverage includes schema normalization, role/scope
-  authorization, approval/status transitions, import idempotency and API
-  allowlisting, private-network denial, media validation, historical snapshot
-  protection, and app presentation boundaries.
+  authorization, approval/status transitions, CSV import idempotency, media
+  validation, historical snapshot protection, and app presentation boundaries.
 - All three web apps build with lazy marketplace panels and explicit React,
   Query, and Firebase vendor chunks. The largest Firebase chunks are about
   513 KB uncompressed for Admin/Merchant and 496 KB for Customer; Vite emits no
@@ -69,82 +68,157 @@ callable. No unrelated service or project-wide IAM role was changed.
 - The regenerated ignored Playwright screenshots are visually readable and
   contain no account data. They prove guest/boundary rendering only, not the
   authenticated live matrix.
+- After removing external JSON/HTTPS catalog import, documentation, workspace
+  type-check, lint, all unit/contract tests, all builds, and diff whitespace
+  passed again. Four Playwright Chromium scenarios passed in 1.3 minutes.
+  Both Expo dependency checks reported up to date, and fresh Android exports
+  produced 4.3 MB Customer and 4.2 MB Driver application bundles.
 
-## Development Firebase evidence recorded through 2026-07-22
+## Owner-authorized Playwright live matrix recorded on 2026-07-23
+
+- The run continued from persisted development fixtures in
+  `spacemansystemsbackend`; it did not delete or recreate the existing named
+  records. The minimal CSV fixture was
+  `tests/fixtures/phase3-playwright-items.csv`; media used the existing
+  `docs/architecture-visuals-docs/spaceman-icon.png`.
+- Playwright passed the authenticated Admin/Merchant/Customer Web workflows:
+  API-import UI absence, manual media-backed store/item publication, CSV
+  selected-row commit and replay with unchecked rows absent, Google Places
+  staging/commit with the selected place already approved, merchant
+  submit/reject/corrected replacement/approve, assigned-store update, and
+  cross-store update denial. The current product supports a corrected
+  replacement submission after rejection; it does not support editing and
+  resubmitting the same rejected store record, so that narrower behavior is
+  not claimed as passed.
+- Playwright also passed Customer guest browse, authenticated checkout gate,
+  cached/current status, unavailable-item presentation, pagination-control
+  boundary (no pagination controls are currently rendered), retired-item and
+  suspended-parent hiding, unrelated-catalog retention, and the required
+  section-only evidence captures. The final continuation run reported `1
+  passed`.
+- Exact named development fixtures remain stored because the owner requested
+  persistence. The two duplicate `Playwright Admin Store 20260723` records
+  were set to `suspended`; the two duplicate
+  `Playwright Unavailable Item 20260723` records remain active but
+  `available: false`. No broad collection cleanup was run.
+- A Playwright `fixme` remains for deterministic Customer catalog error-state
+  injection. The Customer error alert exists in source, but Firestore Web SDK
+  transport failure could not be reliably injected through the current
+  browser harness. This is an evidence gap, not a claimed pass.
+
+## Development Firebase evidence recorded through 2026-07-23
 
 - Firebase CLI and gcloud both selected `spacemansystemsbackend`; no production
   project or emulator was used.
 - Places API was enabled for the server-side store adapter. A dedicated
-  API-restricted replacement key and the item-import host allowlist are stored
-  in Secret Manager. A temporary key whose value appeared in CLI output was
-  deleted immediately; its value was not written to source or documentation.
+  API-restricted replacement key remains stored as
+  `GOOGLE_MAPS_SERVER_API_KEY`. A temporary key whose value appeared in CLI
+  output was deleted immediately; its value was not written to source or
+  documentation.
 - Phase 3 Firestore Rules, Storage Rules, and composite indexes deployed
   successfully. All deployed marketplace indexes report ready.
 - The Functions runtime uses `firebase-functions ^7.3.0` and
   `firebase-admin ^14.2.0`. Cloud Build rejected an intermediate package that
   contained a workspace protocol; the deploy package was corrected to registry
   dependencies only before the successful deployment.
-- The exact 14 marketplace Functions deployed successfully in
+- The current 13 marketplace Functions are active in
   `africa-south1`: `upsertStore`, `submitMerchantStore`,
   `reviewStoreSubmission`, `updateMerchantStore`, `upsertItem`,
   `setItemAvailability`, `retireCatalogItem`, `searchStorePlaces`,
-  `stageGoogleStoreImport`, `stageCsvCatalogImport`, `stageApiCatalogImport`,
-  `commitCatalogImport`, `cancelCatalogImport`, and `cleanupCatalogMedia`.
+  `stageGoogleStoreImport`, `stageCsvCatalogImport`, `commitCatalogImport`,
+  `cancelCatalogImport`, and `cleanupCatalogMedia`.
+- On 2026-07-23 the external JSON/HTTPS catalog API source, schema, service,
+  Admin UI, callable export, live-test case, and current documentation were
+  removed. The exact `stageApiCatalogImport` Function was deleted; its backing
+  Cloud Run service and `CATALOG_IMPORT_ALLOWED_HOSTS` secret both return not
+  found. Read-only Firestore inspection found zero API import batches and zero
+  API-derived items, so no marketplace records required deletion.
 - Failed live attempts always completed and verified their exact cleanup. They
   exposed and drove three narrow corrections: merchant presentation updates no
   longer require protected address data, the import-row verification query has
   its required composite index, and the Storage REST helper uses Firebase
   Auth's Storage authorization scheme.
-- Exact live run `phase3_marketplace_1784749355621_646a3a94` passed manual
+- Historical live run `phase3_marketplace_1784749355621_646a3a94` passed manual
   store/item publication, public active/unavailable reads, public search and
   pending-merchant queries, inactive-parent/retired denial, direct-write
   denial, approval/rejection/scope, cross-store command denial, CSV selection
   and replay, allowlisted API/private-network denial, Google Places staging,
-  valid/invalid/published media, and suspended stale-token denial.
-- That successful run finished with `Live marketplace fixture cleanup completed
-  and verified.` Auth, Firestore, import rows, audit records, and Storage had
-  zero residue for the exact `testRunId`.
+  valid/invalid/published media, and suspended stale-token denial. Its API case
+  is retained only as historical terminal evidence and is no longer an approved
+  product requirement.
+- All 13 approved marketplace callables were then redeployed from the
+  CSV/Google-only bundle. Authoritative post-deploy live run
+  `phase3_marketplace_1784796233777_d40dfad0` passed all 11 current cases:
+  manual publication, public query boundaries, inactive-parent/retired denial,
+  direct-write denial, merchant approval and scope, cross-store denial, CSV
+  selected-row commit/replay, Google Places staging, media
+  validation/publication, and suspended stale-token denial. It finished with
+  verified zero Auth, Firestore, import-row, audit, and Storage residue.
 
 ## Reviewed visual evidence
 
-Nine redacted, Phase-3-relevant screenshots are retained under
-`docs/live-test-data-docs/images/phase3-images/`:
+Twenty-three replacement screenshot candidates under
+`docs/live-test-data-docs/images/phase3-images/` were visually inspected:
 
-- Six Admin/Merchant screenshots show pending and active store states, selected
-  CSV preview rows, published-item/retirement controls, availability controls,
-  and merchant approved/rejected/pending states.
-- Two Customer Web screenshots show the guest active-catalog boundary and
-  published item/media presentation.
-- One Customer App screenshot shows the guest active-catalog boundary.
+- Admin images show manual store/item management, Google Places search and
+  staging, merchant-store approval/rejection controls, CSV preview and commit,
+  item availability, and retirement controls.
+- Merchant images show assigned-store editing and catalog items created from
+  the Admin CSV workflow.
+- Customer Web and Customer App images show matching catalog names, categories,
+  prices, availability presentation, and catalog media. The category-filter
+  image shows visible filtering behavior.
 
-These screenshots support the visible-state review but do not by themselves
-prove command authorization, cross-store denial, replay behavior, session
-restoration, or cleanup. Screenshots that exposed emails or Firebase
-identifiers, and obsolete setup/build screens, were removed from the repository
-evidence set.
+This is useful visible-state coverage, but it is not yet final acceptance
+evidence:
+
+- Any Admin image that still shows the removed **Allowlisted API import** form
+  is stale and must be recaptured after this change.
+- `image-media-upload-firebase.jpg` exposes the Firebase Storage bucket and an
+  internal object-path identifier and must not be included in final redacted
+  evidence.
+- Import-preview images expose exact batch identifiers. Final evidence must
+  crop or redact those identifiers.
+- Some web images show Customer Marketplace on port `5174` or Merchant on
+  `5175`; final captures must use the canonical Merchant `5174` and Customer
+  `5175` URLs.
+- Visible “Phase 3 Development” / “Disposable live-test fixture” catalog
+  records need an exact owner review. Retire controlled test records through
+  normal Admin commands; never perform broad collection deletion.
+- The Customer App images appear to show a guest catalog and do not prove
+  authenticated parity, session restoration, sign-out, inactive/wrong-role
+  denial, stale/offline behavior, pagination, or a self-contained APK launch.
+- No image proves cross-store denial, invalid-media rejection and exact orphan
+  cleanup, customer hiding after retirement, or the Driver App regression.
 
 ## Remaining owner acceptance
 
-1. Complete the Admin/Merchant/Customer Web matrix in
-   `live-test-steps.md` section 10. Record expected versus actual results for
-   manual/Google publication, merchant approval/rejection and scoped edits,
-   cross-store denial, CSV/API selected commit and replay, invalid media,
-   retirement, and inactive-parent customer hiding.
-2. Build and install both self-contained EAS preview APKs as documented in
-   section 11. Customer App must pass guest/authenticated catalog parity,
-   session restoration, sign-out, and inactive-data denial without Metro.
-3. On the Driver App preview APK, pass guest/sign-in boundaries, retained driver
+1. Review the Playwright evidence above against the Admin/Merchant/Customer Web
+   matrix in `live-test-steps.md` section 10. The automated matrix is complete
+   except for deterministic Customer catalog error-state injection; owner
+   review must also approve the persisted named fixtures and screenshots.
+2. Retire any controlled “Phase 3 Development” / “Disposable live-test
+   fixture” records that are not intended development catalog data. Verify the
+   exact records disappear from both customer channels while unrelated
+   catalog data remains.
+3. Build and install both self-contained EAS preview APKs as documented in
+   section 11. Stop Metro and do not use Expo Go. Customer App must pass
+   guest/authenticated catalog parity, session restoration, sign-out,
+   inactive-data denial, pagination, and stale/offline behavior.
+4. On the Driver App preview APK, pass guest/sign-in boundaries, retained driver
    role and delivery-zone scope, **Delivery operations**, session restoration,
    sign-out, inactive-user denial, and absence of marketplace controls.
-4. Save only redacted expected/actual logs and screenshots under
-   `docs/live-test-data-docs/`. Do not retain emails, UIDs, app identifiers,
-   tokens, API keys, passwords, or Firebase console identifiers.
-5. If any source, Rules, indexes, Storage policy, or Function changes while
-   closing these gaps, rerun root validation, Playwright, both native
-   compatibility/export gates, and the exact live marketplace matrix. Require
-   a new successful `testRunId` with verified zero residue.
-6. Review the evidence, check every remaining Phase 3 exit item, and only then
-   change Phase 3 and overall accepted progress.
+5. Recapture only the missing proof. Use the canonical URLs; crop/redact import
+   batch IDs, Storage bucket/object paths, emails, UIDs, app identifiers,
+   tokens, API keys, and passwords. For every scenario record date, app/role,
+   expected result, actual result, and pass/fail.
+6. Run the final root checks in `PLAN-phase-3.md`, Playwright, both Expo
+   compatibility checks, both Android exports, and the live marketplace
+   matrix. Require a new passing `testRunId` only if source/backend behavior
+   changes again; evidence-only edits do not require another live data run.
+7. Review the evidence against every unchecked exit item. Only after there are
+   no unresolved failures or sensitive/stale captures may Phase 3 move from
+   0% to 100% and overall accepted progress from 37.5% to 50%.
 
 No Phase 4 work, production deployment, or push is included. A local source
 checkpoint commit does not represent Phase 3 acceptance.

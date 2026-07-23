@@ -81,11 +81,16 @@ authorization remain mandatory with or without App Check.
 ## AD-012: Reviewed marketplace publication and media
 
 Phase 3 preserves manual store/item creation beside merchant store submission,
-Google Places store import, CSV item import, and allowlisted HTTPS item API
-import. Every import is staged, normalized, validated, previewed, explicitly
-selected, and committed idempotently; an external result never publishes
-directly. Arbitrary URL fetching, private-network targets, and unapproved API
-hosts are prohibited.
+Google Places store staging, and CSV item import. CSV items are staged,
+normalized, validated, previewed, explicitly selected, and committed
+idempotently; an external result never publishes directly. External JSON/HTTPS
+catalog API import, arbitrary URL fetching, its host allowlist, and its callable
+are prohibited.
+
+This operational decision supersedes the optional external catalog API import
+described in immutable architecture reference material. Those source documents
+remain preserved for provenance; they do not authorize rebuilding that
+workflow.
 
 Customer channels may read only active items whose parent store is also active
 and approved. Merchant management remains limited to assigned stores and

@@ -12,9 +12,6 @@ const region = process.env.SPACEMAN_FUNCTIONS_REGION ?? "africa-south1";
 const bucketName =
   process.env.SPACEMAN_FIREBASE_STORAGE_BUCKET ??
   "spacemansystemsbackend.firebasestorage.app";
-const apiFixtureUrl =
-  process.env.SPACEMAN_CATALOG_IMPORT_TEST_URL ??
-  "https://dummyjson.com/products?limit=2&select=title,description,price,category,id";
 const googlePlaceQuery =
   process.env.SPACEMAN_GOOGLE_PLACE_QUERY ??
   "restaurants in Mabopane, South Africa";
@@ -628,24 +625,90 @@ try {
     rejectedPublicRead.status,
     [403, 404],
   );
-
-  const approvedSubmission = await callFunction(
+  const rejectedOwnerQuery = await runFirestoreQuery(
+    {
+      from: [{ collectionId: "stores" }],
+      where: {
+        compositeFilter: {
+          op: "AND",
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: "merchantId" },
+                op: "EQUAL",
+                value: { stringValue: merchantUid },
+              },
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: "status" },
+                op: "EQUAL",
+                value: { stringValue: "draft" },
+              },
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: "approvalState" },
+                op: "IN",
+                value: {
+                  arrayValue: {
+                    values: [
+                      { stringValue: "pending" },
+                      { stringValue: "rejected" },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      orderBy: [{ field: { fieldPath: "__name__" }, direction: "ASCENDING" }],
+      limit: 50,
+    },
+    unscopedMerchantToken,
+  );
+  requireStatus(
+    "Pending merchant rejected-draft query",
+    rejectedOwnerQuery.status,
+    [200],
+  );
+  if (!JSON.stringify(rejectedOwnerQuery.body).includes(rejectedStoreId)) {
+    throw new Error("Rejected merchant store was not returned to its owner.");
+  }
+  const correctedSubmission = await callFunction(
     "submitMerchantStore",
     unscopedMerchantToken,
     {
-      name: "Phase 3 Approved Merchant Store",
+      storeId: rejectedStoreId,
+      name: "Phase 3 Corrected Merchant Store",
       category: "Restaurant",
-      description: "Approval lifecycle fixture.",
+      description: "Corrected on the original rejected store record.",
       address,
       openingHours: [],
       minimumOrder: { amountMinor: 1_500, currency: "ZAR" },
     },
   );
-  const approvedStoreId = commandId(
-    "Merchant draft submission for approval",
-    approvedSubmission,
+  const correctedStoreId = commandId(
+    "Merchant same-record correction and resubmission",
+    correctedSubmission,
   );
-  await tagDocument("stores", approvedStoreId);
+  if (correctedStoreId !== rejectedStoreId) {
+    throw new Error("Merchant correction created a replacement store record.");
+  }
+  const correctedSnapshot = await database
+    .collection("stores")
+    .doc(rejectedStoreId)
+    .get();
+  if (
+    correctedSnapshot.get("approvalState") !== "pending" ||
+    correctedSnapshot.get("rejectionReason") !== undefined
+  ) {
+    throw new Error(
+      "Corrected merchant store did not return to a clean pending state.",
+    );
+  }
+  const approvedStoreId = rejectedStoreId;
   const approval = await callFunction(
     "reviewStoreSubmission",
     superAdminToken,
@@ -738,43 +801,6 @@ try {
   commandId("CSV idempotent replay", csvReplay);
   if ((await tagImportedItems(csvBatchId)) !== csvItemCount)
     throw new Error("CSV replay changed the imported item count.");
-
-  const invalidApi = await callFunction(
-    "stageApiCatalogImport",
-    superAdminToken,
-    {
-      storeId: storeAId,
-      url: "https://127.0.0.1/catalog.json",
-    },
-  );
-  requireStatus("Private-network API denial", invalidApi.status, [403]);
-  const apiStage = await callFunction(
-    "stageApiCatalogImport",
-    superAdminToken,
-    {
-      storeId: storeAId,
-      url: apiFixtureUrl,
-    },
-  );
-  const apiBatchId = commandId("Allowlisted API import staging", apiStage);
-  await tagImportBatch(apiBatchId);
-  const apiRows = await database
-    .collection("importBatches")
-    .doc(apiBatchId)
-    .collection("rows")
-    .where("valid", "==", true)
-    .orderBy("rowNumber")
-    .limit(2)
-    .get();
-  if (apiRows.empty)
-    throw new Error("API staging produced no valid preview rows.");
-  const apiCommit = await callFunction("commitCatalogImport", superAdminToken, {
-    batchId: apiBatchId,
-    selectedRowIds: apiRows.docs.map((snapshot) => snapshot.id),
-  });
-  commandId("API selected-row commit", apiCommit);
-  if ((await tagImportedItems(apiBatchId)) !== apiRows.size)
-    throw new Error("API commit count does not match selected rows.");
 
   const places = await callFunction("searchStorePlaces", superAdminToken, {
     query: googlePlaceQuery,
@@ -917,7 +943,6 @@ try {
         merchantApprovalRejectionAndScope: "passed",
         crossStoreCommandsDenied: "passed",
         csvPreviewSelectionAndReplay: "passed",
-        allowlistedApiAndPrivateNetworkDenial: "passed",
         googlePlacesStoreStaging: "passed",
         validInvalidAndPublishedMedia: "passed",
         suspendedStaleTokenDenied: "passed",

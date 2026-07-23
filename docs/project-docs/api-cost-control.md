@@ -17,10 +17,10 @@ be authoritatively calculated. Driver location is foreground-only in V1 and is
 throttled by movement, time, and active assignment state.
 
 Phase 3 Google Places calls are server-only, use field masks, and stage editable
-store candidates rather than publishing them. Item API import permits only
-explicit HTTPS hosts, rejects private/link-local destinations and redirects,
-and enforces response timeout, size, shape, and 500-row limits. CSV import has
-the same 500-row ceiling. Import replay is content-hash/idempotency controlled.
+store candidates rather than publishing them. CSV import is capped at 400
+candidate rows and replay is content-hash/idempotency controlled. External
+JSON/HTTPS catalog fetching and its host allowlist are prohibited, so the
+backend makes no arbitrary remote catalog requests.
 
 ## Firebase and media
 

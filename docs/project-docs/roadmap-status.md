@@ -29,10 +29,13 @@ Phase 2 is complete. Phase 3 (Marketplace) is in progress at **0% accepted**.
 The bounded source implementation, runtime update, shared contracts,
 repositories/queries, trusted Functions, Rules/indexes, import/media workflows,
 four app interfaces, automated tests, development deployment, and Playwright
-screenshots are complete in the reviewed Phase 3 implementation. Cloud Run callable
-transport IAM is owner-approved and applied. Exact live run
-`phase3_marketplace_1784749355621_646a3a94` passed all marketplace/security
-cases and verified zero residue. The owner-run five-app/manual acceptance must
-still pass. Its approved contract is `docs/plans-docs/PLAN-phase-3.md`; source
-and automated acceptance do not increase accepted progress or the overall
-37.5% value before that gate passes.
+screenshots are complete in the reviewed Phase 3 implementation. External
+JSON/HTTPS catalog API import and its cloud resources are removed; CSV
+selected-row commit and Google Places staging remain. Cloud Run callable
+transport IAM is owner-approved and applied. Post-removal live run
+`phase3_marketplace_1784796233777_d40dfad0` passed all 11 current
+marketplace/security cases against the redeployed narrowed bundle and verified
+zero residue. The owner-run five-app/manual acceptance must still pass. Its
+approved contract is `docs/plans-docs/PLAN-phase-3.md`; source and automated
+acceptance do not increase accepted progress or the overall 37.5% value before
+that gate passes.
