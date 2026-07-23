@@ -16,12 +16,14 @@
     "@spaceman/app-errors": "workspace:*",
     "@spaceman/app-firebase": "workspace:*",
     "@spaceman/app-maps": "workspace:*",
+    "@spaceman/app-query": "workspace:*",
     "@spaceman/app-services": "workspace:*",
     "@spaceman/app-types": "workspace:*",
     "@spaceman/app-ui": "workspace:*",
     "@spaceman/shared": "workspace:*",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-router-dom": "^7.18.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",

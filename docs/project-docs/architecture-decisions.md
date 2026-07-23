@@ -52,10 +52,12 @@ collected in V1.
 ## AD-009: Manual validation and release control
 
 Repository-hosted automation workflows are not part of this project. The
-project owner runs the documented validation, Playwright, Expo Go, Maestro,
-Firebase integration, and release-acceptance steps manually, reviews the
-resulting diff, and creates commits manually. Production deployment remains
-blocked until the complete Phase 7 acceptance matrix is reviewed and approved.
+project owner runs the documented validation, Playwright, Firebase integration,
+and physical-device acceptance on self-contained EAS preview APKs, reviews the
+resulting diff, and creates commits manually. Native unit, compatibility, and
+export checks remain automated locally; device acceptance remains an explicit
+owner-operated gate. Production deployment remains blocked until the complete
+Phase 7 acceptance matrix is reviewed and approved.
 
 ## AD-010: Canonical identity checks and callable ingress
 
@@ -75,3 +77,25 @@ attestation path. Enforcement may be staged only after provider registration,
 development-build/debug-token verification, metrics observation, and a tested
 rollback avoid locking out a client. Authentication, Rules, and Function
 authorization remain mandatory with or without App Check.
+
+## AD-012: Reviewed marketplace publication and media
+
+Phase 3 preserves manual store/item creation beside merchant store submission,
+Google Places store import, CSV item import, and allowlisted HTTPS item API
+import. Every import is staged, normalized, validated, previewed, explicitly
+selected, and committed idempotently; an external result never publishes
+directly. Arbitrary URL fetching, private-network targets, and unapproved API
+hosts are prohibited.
+
+Customer channels may read only active items whose parent store is also active
+and approved. Merchant management remains limited to assigned stores and
+permitted fields; approval, ownership, protected scope/location, and retirement
+remain trusted-command responsibilities. A narrow onboarding exception may
+allow a canonical pending merchant to submit only their own draft without
+unlocking operational access.
+
+Store and item media uses scoped Cloud Storage staging and catalog paths,
+validated JPEG/PNG/WebP content, compressed originals, thumbnails, stable
+metadata, and exact audited orphan cleanup. Google Places in Phase 3 may prefill
+editable store identity/location fields only; Routes, serviceability, distance,
+fees, ETA, and checkout validation remain Phase 4.

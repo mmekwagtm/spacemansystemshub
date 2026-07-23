@@ -34,6 +34,29 @@ five-client identity acceptance are complete.
   locking out web localhost and Expo Go clients before providers and
   development builds are ready.
 
+## Phase 3 implementation state
+
+Phase 3 (Marketplace) source implementation is complete against the bounded
+contract in `docs/plans-docs/PLAN-phase-3.md`; accepted progress remains 0%
+until the owner-operated five-app/manual matrix passes. The development live
+matrix already passes with exact cleanup.
+
+- Shared types, validation, repositories, services, TanStack Query hooks,
+  Firestore/Storage Rules, indexes, trusted Functions, and app-owned interfaces
+  implement one marketplace contract.
+- Admin supports manual store/item work, merchant review, Google staging,
+  CSV/allowlisted-API preview and selected commit, media, and retirement.
+  Merchant supports pending onboarding and assigned-store/catalog changes.
+- Customer Web and Customer App use the same guest-readable active catalog,
+  categories, unavailable-item state, thumbnails, bounded pagination, and
+  stale/error feedback. Driver App remains a regression-only client.
+- Imports are staged, normalized, previewed, selected, bounded, and
+  idempotent; external responses never publish directly. Media uses scoped
+  staging, compressed originals/thumbnails, metadata validation, publication,
+  replacement cleanup, and exact orphan cleanup.
+- Routes, serviceability, delivery fees, checkout, Paystack, orders,
+  fulfillment, App Check enforcement, and production remain outside Phase 3.
+
 ## Dependency and cleanup state
 
 - The root pnpm installation and lockfile are synchronized. SDK-compatible
@@ -47,10 +70,12 @@ five-client identity acceptance are complete.
 - Generated builds, Expo caches, Playwright output, secrets, `.env.local`, and
   dependency directories remain ignored. The native Firebase configuration
   files remain available locally and are no longer tracked by Git.
-- The Firebase CLI reports the current `firebase-functions` v6 dependency as
-  behind the latest major. Its breaking upgrade is deferred to a bounded Phase
-  3 maintenance change instead of being mixed into the Phase 2 security
-  release.
+- The Functions runtime uses the approved `firebase-functions ^7.3.0` and
+  `firebase-admin ^14.2.0` pair. Its deploy manifest contains registry
+  dependencies only; no `workspace:*` protocol enters Cloud Build.
+- The tracked worktree was clean at Phase 3 planning start. The repository has
+  one pnpm lockfile, no npm/yarn lockfile, and no tracked generated output,
+  `.env.local`, or native Firebase configuration.
 
 ## Validation evidence
 
@@ -72,19 +97,52 @@ On 2026-07-21 the implemented checkout passed:
   customer verification, staff invitation/setup, role/inactive boundaries,
   session behavior, and the current Customer and Driver Expo Go apps.
 
-The web production builds report large Firebase entry chunks of roughly 745 KB
-uncompressed (about 192 KB compressed). This is a Phase 3 code-splitting and
-performance item, not an identity correctness failure.
+Phase 3 evidence on 2026-07-21 additionally records:
+
+- Marketplace schemas, authorization/status transitions, repository
+  normalization/pagination/index coverage, import validation/idempotency,
+  media policy, web panels, and Customer App contract tests passed.
+- All three web production builds pass with lazy marketplace panels. The
+  Firebase vendor chunk is about 513 KB uncompressed for Admin/Merchant and
+  496 KB for Customer, with no Vite chunk-size or circular-chunk warning.
+- Four Playwright Chromium scenarios passed and generated visually inspected
+  Admin, Merchant, Customer desktop, and Customer mobile screenshots under the
+  ignored `test-results/` directory.
+- Development Firestore/Storage Rules and indexes are deployed; all marketplace
+  indexes report ready. The 14 marketplace Functions are deployed and active,
+  and the Places/allowlist secrets are configured without tracked values.
+- The owner-approved Cloud Run `roles/run.invoker`/`allUsers` transport binding
+  is applied to exactly the 14 marketplace callable services. Exact live run
+  `phase3_marketplace_1784749355621_646a3a94` passed all 12 marketplace,
+  provider, scope, denial, import, media, retirement, and stale-token cases and
+  verified zero Auth, Firestore, import-row, audit, and Storage residue.
+- Earlier live attempts also cleaned successfully and exposed three corrected
+  issues: protected address data was incorrectly required for a merchant
+  presentation update, the import-row verifier needed a composite index, and
+  the Storage REST test helper needed Firebase Auth's Storage authorization
+  scheme.
+
+Post-cleanup revalidation on 2026-07-23 passed documentation, type-check, lint,
+all unit/contract tests, all builds, Expo's online dependency check, both
+Android exports, and four Playwright Chromium scenarios. The regenerated
+Playwright screenshots are readable and contain no account data. Current
+preview APKs still require owner-operated physical-device acceptance.
+
+The earlier roughly 745 KB Firebase entry-chunk warning is resolved by explicit
+vendor splitting and marketplace lazy loading.
 
 ## Remaining later-phase actions
 
 - Rotate the Paystack **test** secret before any Phase 4 payment work because
   the original value appeared in diagnostic output during setup.
-- Complete future provider, marketplace, and release gates only in their owning
-  phases. No Phase 2 acceptance action remains.
+- Complete the Phase 3 owner five-app/manual acceptance and record redacted
+  evidence before starting Phase 4. No Phase 2 acceptance action remains.
 
 ## Next phase gate
 
 Phase 2 is complete and overall accepted progress is 37.5%. Phase 3
-(Marketplace) is next at 0% / not started and requires its own approved bounded
-plan before implementation.
+(Marketplace) implementation, deployment, Playwright, and self-cleaning live
+matrix are complete but it remains **0% accepted**. Customer/Driver
+self-contained preview-APK regression, five-app manual marketplace acceptance,
+and owner evidence must pass before Phase 3 or overall accepted progress
+changes.

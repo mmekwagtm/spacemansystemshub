@@ -1,0 +1,3 @@
+name,description,price_minor,category,available,image_alt,external_id
+Phase 3 Development Burger,Disposable live-test fixture,8500,Meals,true,Burger on a plate,phase3-burger
+Phase 3 Development Juice,Disposable live-test fixture,2500,Drinks,false,Orange juice in a glass,phase3-juice

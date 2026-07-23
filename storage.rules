@@ -2,8 +2,51 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+    function active() {
+      return request.auth != null
+        && request.auth.token.status == 'active'
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'active'
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == request.auth.token.role;
+    }
+
+    function platformStaff() {
+      return active()
+        && (request.auth.token.role == 'admin' || request.auth.token.role == 'super_admin');
+    }
+
+    function merchantFor(storeId) {
+      return active()
+        && request.auth.token.role == 'merchant'
+        && request.auth.token.storeIds is list
+        && request.auth.token.storeIds.hasAny([storeId]);
+    }
+
+    function validCatalogImage() {
+      return request.resource != null
+        && request.resource.size > 0
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    match /catalog/{storeId}/staging/{ownerId}/{assetId}/{fileName} {
+      allow get: if platformStaff() || merchantFor(storeId);
+      allow create, update: if request.auth.uid == ownerId
+        && (platformStaff() || merchantFor(storeId))
+        && validCatalogImage();
+      allow delete: if request.auth.uid == ownerId
+        && (platformStaff() || merchantFor(storeId));
+      allow list: if false;
+    }
+
+    match /catalog/{storeId}/published/{allPaths=**} {
+      allow get: if firestore.exists(/databases/(default)/documents/stores/$(storeId))
+        && firestore.get(/databases/(default)/documents/stores/$(storeId)).data.status == 'active'
+        && firestore.get(/databases/(default)/documents/stores/$(storeId)).data.approvalState == 'approved';
+      allow write, list: if false;
+    }
+
     match /{allPaths=**} {
-      // Uploads and privileged media operations are issued by trusted backend code.
       allow read, write: if false;
     }
   }

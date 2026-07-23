@@ -10,7 +10,7 @@ destination in the canonical workspace documentation.
 | Admin Web Blueprint | `architecture.md`, activities/audit rules, marketplace and release phases. |
 | Customer App & Web Blueprint | Auth, checkout session, payment, Maps, tracking, and accessibility decisions. |
 | Merchant Web Blueprint | Store scope, catalog, paid queue, fulfillment, and settlement decisions. |
-| Driver App Blueprint | Assignment, foreground location, delivery, privacy, and Maestro coverage. |
+| Driver App Blueprint | Assignment, foreground location, delivery, privacy, and physical-device regression coverage. |
 | Admin PDF/PPTX sources | UI intent only; implementation decisions are normalized in the documents above. |
 
 Where a source reference is intentionally undecided or conflicts with another

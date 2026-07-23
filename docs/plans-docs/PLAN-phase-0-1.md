@@ -3,7 +3,7 @@
 ## Summary
 
 - Preserve all six architecture source documents and six visual originals as immutable reference material; their page/slide counts match their Markdown counterparts.
-- Treat this checkout as a new, documentation-only canonical workspace. Replace all 36 `<FILL-IN>` markers and remove stale claims that code, Firebase configuration, tests, or deployments already exist.
+- Treat this checkout as a new, documentation-only canonical workspace. Replace all 36 original placeholder tokens and remove stale claims that code, Firebase configuration, tests, or deployments already exist.
 - Build a fresh pnpm-only monorepo, then progress through shared contracts, marketplace, verified payments, fulfillment, operations, and gated releases.
 
 ## Documentation and governance
@@ -46,9 +46,12 @@
 
 ## Validation and acceptance
 
-- Phase 0 verifies that no `<FILL-IN>` markers or false implementation claims remain and that source-to-decision traceability is complete.
+- Phase 0 verifies that no unresolved placeholder tokens or false implementation claims remain and that source-to-decision traceability is complete.
 - From `/home/mmekwa/Desktop/projects/spacemansystems` after Phase 1: run `corepack pnpm install`, `corepack pnpm typecheck`, `corepack pnpm lint`, `corepack pnpm test`, and `corepack pnpm build`.
-- Use Vitest/Testing Library for shared and web packages, Jest/Expo for native packages, Playwright for web journeys, and Maestro against Expo development builds.
+- Use Vitest/Testing Library for shared and web packages, Jest/Expo for native
+  packages, and Playwright for web journeys. Validate native release candidates
+  with Expo compatibility/export checks and owner-operated physical-device
+  testing on self-contained EAS preview APKs.
 - Run integration/security tests against the shared dev Firebase project using records tagged by `testRunId`; privileged cleanup may delete only that run’s fixtures.
 - Require tested paths for guest browse, protected ownership denial, exactly-once paid-order creation, webhook replay, merchant lifecycle, assignment race prevention, foreground tracking stop, refund reconciliation, and archive/redact account handling.
 

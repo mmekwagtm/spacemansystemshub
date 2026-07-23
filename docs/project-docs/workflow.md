@@ -23,6 +23,11 @@ Keep CLI debug logging disabled around secrets. After a live test, verify its
 exact `testRunId` is absent from both Firestore and Firebase Auth before using
 the result as evidence.
 
+Marketplace deployment is limited to the named Rules, indexes, Storage policy,
+and exact callable list in `live-test-steps.md`. The self-cleaning marketplace
+matrix must also verify import-row, audit, and Storage residue. A successful
+source build or deployed Function does not replace manual five-app acceptance.
+
 ## Sensitive-write workflow
 
 All role/status/scope, payment, refund, order transition, assignment, location,
@@ -44,5 +49,6 @@ corepack pnpm build
 corepack pnpm test:web:e2e
 ```
 
-The identity-specific development-project command and all required environment
-guards are documented in `docs/project-docs/live-test-steps.md`.
+The identity- and marketplace-specific development-project commands, callable
+transport check, cleanup verification, Playwright screenshots, and manual
+five-app matrix are documented in `docs/project-docs/live-test-steps.md`.

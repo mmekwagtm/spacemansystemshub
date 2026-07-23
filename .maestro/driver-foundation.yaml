@@ -1,4 +1,0 @@
-appId: ${MAESTRO_DRIVER_APP_ID}
----
-- launchApp
-- assertVisible: "Delivery operations foundation"

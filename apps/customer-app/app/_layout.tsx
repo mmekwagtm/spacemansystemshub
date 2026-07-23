@@ -1,5 +1,15 @@
+import {
+  createSpacemanQueryClient,
+  QueryClientProvider,
+} from "@spaceman/app-query";
 import { Stack } from "expo-router";
 
+const queryClient = createSpacemanQueryClient();
+
 export default function RootLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Stack screenOptions={{ headerShown: false }} />
+    </QueryClientProvider>
+  );
 }

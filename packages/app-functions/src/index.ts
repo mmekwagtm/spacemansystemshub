@@ -1,5 +1,13 @@
-import { APP_ROLES, canTransitionFulfillment, canTransitionUserStatus } from "@spaceman/app-core";
-import type { AppRole, FulfillmentStatus, UserStatus } from "@spaceman/app-core";
+import {
+  APP_ROLES,
+  canTransitionFulfillment,
+  canTransitionUserStatus,
+} from "@spaceman/app-core";
+import type {
+  AppRole,
+  FulfillmentStatus,
+  UserStatus,
+} from "@spaceman/app-core";
 import { AppError } from "@spaceman/app-errors";
 import { testRunIdSchema } from "@spaceman/app-validation";
 
@@ -10,8 +18,19 @@ export const TRUSTED_COMMANDS = [
   "updateUserStatus",
   "updateUserScope",
   "upsertStore",
+  "submitMerchantStore",
+  "reviewStoreSubmission",
+  "updateMerchantStore",
   "upsertItem",
+  "setItemAvailability",
   "retireCatalogItem",
+  "searchStorePlaces",
+  "stageGoogleStoreImport",
+  "stageCsvCatalogImport",
+  "stageApiCatalogImport",
+  "commitCatalogImport",
+  "cancelCatalogImport",
+  "cleanupCatalogMedia",
   "createCheckoutSession",
   "verifyPaystackPayment",
   "handlePaystackWebhook",
@@ -22,7 +41,7 @@ export const TRUSTED_COMMANDS = [
   "requestRefund",
   "archiveOrRedactAccount",
   "seedTestFixtures",
-  "cleanupTestFixtures"
+  "cleanupTestFixtures",
 ] as const;
 export type TrustedCommand = (typeof TRUSTED_COMMANDS)[number];
 
@@ -32,9 +51,20 @@ const commandRoles: Readonly<Record<TrustedCommand, readonly AppRole[]>> = {
   createStaffUser: ["super_admin"],
   updateUserStatus: ["admin", "super_admin"],
   updateUserScope: ["admin", "super_admin"],
-  upsertStore: ["merchant", "admin", "super_admin"],
+  upsertStore: ["admin", "super_admin"],
+  submitMerchantStore: ["merchant"],
+  reviewStoreSubmission: ["admin", "super_admin"],
+  updateMerchantStore: ["merchant"],
   upsertItem: ["merchant", "admin", "super_admin"],
-  retireCatalogItem: ["merchant", "admin", "super_admin"],
+  setItemAvailability: ["merchant", "admin", "super_admin"],
+  retireCatalogItem: ["admin", "super_admin"],
+  searchStorePlaces: ["admin", "super_admin"],
+  stageGoogleStoreImport: ["admin", "super_admin"],
+  stageCsvCatalogImport: ["admin", "super_admin"],
+  stageApiCatalogImport: ["admin", "super_admin"],
+  commitCatalogImport: ["admin", "super_admin"],
+  cancelCatalogImport: ["admin", "super_admin"],
+  cleanupCatalogMedia: ["merchant", "admin", "super_admin"],
   createCheckoutSession: ["customer"],
   verifyPaystackPayment: ["super_admin"],
   handlePaystackWebhook: ["super_admin"],
@@ -45,16 +75,19 @@ const commandRoles: Readonly<Record<TrustedCommand, readonly AppRole[]>> = {
   requestRefund: ["admin", "super_admin"],
   archiveOrRedactAccount: ["admin", "super_admin"],
   seedTestFixtures: ["super_admin"],
-  cleanupTestFixtures: ["super_admin"]
+  cleanupTestFixtures: ["super_admin"],
 };
 
-export function assertTrustedCommandAccess(command: TrustedCommand, role: AppRole): void {
+export function assertTrustedCommandAccess(
+  command: TrustedCommand,
+  role: AppRole,
+): void {
   if (!commandRoles[command].includes(role)) {
     throw new AppError({
       code: "authorization_denied",
       source: "app-functions/command-policy",
       message: `Role ${role} cannot execute ${command}.`,
-      userMessage: "You do not have permission to complete that action."
+      userMessage: "You do not have permission to complete that action.",
     });
   }
 }
@@ -62,24 +95,31 @@ export function assertTrustedCommandAccess(command: TrustedCommand, role: AppRol
 export function assertFulfillmentTransition(
   role: AppRole,
   from: FulfillmentStatus,
-  to: FulfillmentStatus
+  to: FulfillmentStatus,
 ): void {
   if (!canTransitionFulfillment(from, to)) {
     throw new AppError({
       code: "precondition_failed",
       source: "app-functions/fulfillment-transition",
       message: `The transition from ${from} to ${to} is not allowed.`,
-      userMessage: "This order can no longer move to that status."
+      userMessage: "This order can no longer move to that status.",
     });
   }
 
-  const merchantTransition = ["paid", "confirmed", "preparing"].includes(from)
-    && ["confirmed", "preparing", "ready_for_pickup"].includes(to);
-  const driverTransition = from === "ready_for_pickup" && to === "on_the_way"
-    || from === "on_the_way" && to === "delivered";
-  const staffTransition = APP_ROLES.includes(role) && (role === "admin" || role === "super_admin");
+  const merchantTransition =
+    ["paid", "confirmed", "preparing"].includes(from) &&
+    ["confirmed", "preparing", "ready_for_pickup"].includes(to);
+  const driverTransition =
+    (from === "ready_for_pickup" && to === "on_the_way") ||
+    (from === "on_the_way" && to === "delivered");
+  const staffTransition =
+    APP_ROLES.includes(role) && (role === "admin" || role === "super_admin");
 
-  if ((role === "merchant" && merchantTransition) || (role === "driver" && driverTransition) || staffTransition) {
+  if (
+    (role === "merchant" && merchantTransition) ||
+    (role === "driver" && driverTransition) ||
+    staffTransition
+  ) {
     return;
   }
 
@@ -87,55 +127,73 @@ export function assertFulfillmentTransition(
     code: "authorization_denied",
     source: "app-functions/fulfillment-transition",
     message: `Role ${role} cannot move ${from} to ${to}.`,
-    userMessage: "You do not have permission to update this order status."
+    userMessage: "You do not have permission to update this order status.",
   });
 }
 
-export function assertAssignmentVersion(expectedVersion: number, currentVersion: number): void {
+export function assertAssignmentVersion(
+  expectedVersion: number,
+  currentVersion: number,
+): void {
   if (expectedVersion !== currentVersion) {
     throw new AppError({
       code: "conflict",
       source: "app-functions/driver-assignment",
-      message: "Driver assignment version does not match the current assignment.",
-      userMessage: "This order was updated by another dispatcher. Refresh and try again.",
-      debug: { expectedVersion, currentVersion }
+      message:
+        "Driver assignment version does not match the current assignment.",
+      userMessage:
+        "This order was updated by another dispatcher. Refresh and try again.",
+      debug: { expectedVersion, currentVersion },
     });
   }
 }
 
-export function assertStoreScope(role: AppRole, storeIds: readonly string[], storeId: string): void {
+export function assertStoreScope(
+  role: AppRole,
+  storeIds: readonly string[],
+  storeId: string,
+): void {
   if (role === "merchant" && !storeIds.includes(storeId)) {
     throw new AppError({
       code: "authorization_denied",
       source: "app-functions/store-scope",
       message: `Merchant scope does not include store ${storeId}.`,
-      userMessage: "You do not have access to that store."
+      userMessage: "You do not have access to that store.",
     });
   }
 }
 
-export function assertUserManagementScope(actorRole: AppRole, targetRole: AppRole): void {
-  const canManageTarget = actorRole === "super_admin" || (
-    actorRole === "admin" && targetRole !== "admin" && targetRole !== "super_admin"
-  );
+export function assertUserManagementScope(
+  actorRole: AppRole,
+  targetRole: AppRole,
+): void {
+  const canManageTarget =
+    actorRole === "super_admin" ||
+    (actorRole === "admin" &&
+      targetRole !== "admin" &&
+      targetRole !== "super_admin");
 
   if (!canManageTarget) {
     throw new AppError({
       code: "authorization_denied",
       source: "app-functions/user-management",
       message: `Role ${actorRole} cannot manage a ${targetRole} account.`,
-      userMessage: "You do not have permission to manage that account."
+      userMessage: "You do not have permission to manage that account.",
     });
   }
 }
 
-export function assertUserStatusTransition(from: UserStatus, to: UserStatus): void {
+export function assertUserStatusTransition(
+  from: UserStatus,
+  to: UserStatus,
+): void {
   if (!canTransitionUserStatus(from, to)) {
     throw new AppError({
       code: "precondition_failed",
       source: "app-functions/user-status-transition",
       message: `User status cannot transition from ${from} to ${to}.`,
-      userMessage: "That account status change is not allowed. Refresh and try again."
+      userMessage:
+        "That account status change is not allowed. Refresh and try again.",
     });
   }
 }
@@ -154,14 +212,15 @@ export function decidePaystackWebhookAction(input: {
     return "replay";
   }
   if (
-    input.checkoutSessionStatus !== "payment_pending"
-    && input.checkoutSessionStatus !== "payment_initialized"
+    input.checkoutSessionStatus !== "payment_pending" &&
+    input.checkoutSessionStatus !== "payment_initialized"
   ) {
     throw new AppError({
       code: "precondition_failed",
       source: "app-functions/payment-webhook",
       message: "The checkout session is not ready for payment confirmation.",
-      userMessage: "This payment cannot be confirmed for the current checkout session."
+      userMessage:
+        "This payment cannot be confirmed for the current checkout session.",
     });
   }
 
@@ -171,14 +230,15 @@ export function decidePaystackWebhookAction(input: {
 export function assertForegroundLocationEligibility(
   actorId: string,
   assignedDriverId: unknown,
-  fulfillmentStatus: unknown
+  fulfillmentStatus: unknown,
 ): void {
   if (assignedDriverId !== actorId || fulfillmentStatus !== "on_the_way") {
     throw new AppError({
       code: "authorization_denied",
       source: "app-functions/driver-location",
-      message: "Foreground location updates require the assigned driver and an active delivery.",
-      userMessage: "Location sharing is allowed only for your active delivery."
+      message:
+        "Foreground location updates require the assigned driver and an active delivery.",
+      userMessage: "Location sharing is allowed only for your active delivery.",
     });
   }
 }
@@ -189,36 +249,50 @@ export function assertRefundReviewAllowed(input: {
   totalAmountMinor: number;
   requestedAmountMinor: number;
 }): void {
-  if (!Number.isSafeInteger(input.totalAmountMinor) || input.totalAmountMinor <= 0) {
+  if (
+    !Number.isSafeInteger(input.totalAmountMinor) ||
+    input.totalAmountMinor <= 0
+  ) {
     throw new AppError({
       code: "precondition_failed",
       source: "app-functions/refund-review",
       message: "The order total is invalid for a refund review.",
-      userMessage: "This order cannot be refunded because its payment total is invalid."
+      userMessage:
+        "This order cannot be refunded because its payment total is invalid.",
     });
   }
-  if (!Number.isSafeInteger(input.requestedAmountMinor) || input.requestedAmountMinor <= 0) {
+  if (
+    !Number.isSafeInteger(input.requestedAmountMinor) ||
+    input.requestedAmountMinor <= 0
+  ) {
     throw new AppError({
       code: "invalid_input",
       source: "app-functions/refund-review",
-      message: "The requested refund amount must be a positive integer minor amount.",
-      userMessage: "Enter a valid refund amount."
+      message:
+        "The requested refund amount must be a positive integer minor amount.",
+      userMessage: "Enter a valid refund amount.",
     });
   }
-  if (input.paymentStatus !== "paid" && input.paymentStatus !== "partially_refunded") {
+  if (
+    input.paymentStatus !== "paid" &&
+    input.paymentStatus !== "partially_refunded"
+  ) {
     throw new AppError({
       code: "precondition_failed",
       source: "app-functions/refund-review",
       message: "Only paid orders can enter refund review.",
-      userMessage: "Only a paid order can be refunded."
+      userMessage: "Only a paid order can be refunded.",
     });
   }
-  if (input.refundStatus === "processing" || input.refundStatus === "completed") {
+  if (
+    input.refundStatus === "processing" ||
+    input.refundStatus === "completed"
+  ) {
     throw new AppError({
       code: "precondition_failed",
       source: "app-functions/refund-review",
       message: "A refund is already being processed for this order.",
-      userMessage: "A refund is already in progress for this order."
+      userMessage: "A refund is already in progress for this order.",
     });
   }
   if (input.requestedAmountMinor > input.totalAmountMinor) {
@@ -226,22 +300,123 @@ export function assertRefundReviewAllowed(input: {
       code: "invalid_input",
       source: "app-functions/refund-review",
       message: "The requested refund exceeds the paid order total.",
-      userMessage: "The refund cannot exceed the amount paid."
+      userMessage: "The refund cannot exceed the amount paid.",
     });
   }
 }
 
-export function assertAccountArchiveTarget(actorId: string, targetUserId: string): void {
+export function assertAccountArchiveTarget(
+  actorId: string,
+  targetUserId: string,
+): void {
   if (actorId === targetUserId) {
     throw new AppError({
       code: "precondition_failed",
       source: "app-functions/account-retention",
       message: "Administrators cannot archive their own active account.",
-      userMessage: "You cannot archive your own active administrator account."
+      userMessage: "You cannot archive your own active administrator account.",
     });
   }
 }
 
 export function parseScopedTestRunId(value: unknown): string {
   return testRunIdSchema.parse(value);
+}
+
+const privateIpv4Patterns = [
+  /^10\./,
+  /^127\./,
+  /^169\.254\./,
+  /^192\.168\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+];
+
+export function assertCatalogImportUrlAllowed(
+  value: string,
+  allowedHosts: readonly string[],
+): URL {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch (error) {
+    throw new AppError({
+      code: "invalid_input",
+      source: "app-functions/catalog-import-url",
+      message: "The catalog API URL is invalid.",
+      userMessage: "Enter a valid HTTPS catalog API URL.",
+      cause: error,
+    });
+  }
+
+  const hostname = url.hostname.toLocaleLowerCase("en-ZA");
+  const normalizedAllowlist = allowedHosts.map((host) =>
+    host.trim().toLocaleLowerCase("en-ZA"),
+  );
+  const privateHost =
+    hostname === "localhost" ||
+    hostname === "::1" ||
+    hostname.endsWith(".local") ||
+    privateIpv4Patterns.some((pattern) => pattern.test(hostname));
+  if (
+    url.protocol !== "https:" ||
+    privateHost ||
+    !normalizedAllowlist.includes(hostname)
+  ) {
+    throw new AppError({
+      code: "authorization_denied",
+      source: "app-functions/catalog-import-url",
+      message: `Catalog API host ${hostname} is not allowed.`,
+      userMessage: "That catalog source is not approved for import.",
+    });
+  }
+
+  url.username = "";
+  url.password = "";
+  return url;
+}
+
+export type CatalogImportCommitAction = "apply" | "replay";
+
+export function decideCatalogImportCommit(
+  status: string,
+): CatalogImportCommitAction {
+  if (status === "applied") return "replay";
+  if (status === "ready" || status === "failed") return "apply";
+  throw new AppError({
+    code: "precondition_failed",
+    source: "app-functions/catalog-import-commit",
+    message: `Import status ${status} cannot be committed.`,
+    userMessage: "This import is not ready to commit. Refresh its preview.",
+  });
+}
+
+export function stableCatalogImportItemId(
+  batchId: string,
+  rowId: string,
+): string {
+  const value = `${batchId}:${rowId}`;
+  let hash = 2_166_136_261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return `import-${(hash >>> 0).toString(16).padStart(8, "0")}-${batchId.slice(0, 12)}-${rowId.slice(0, 12)}`;
+}
+
+export function assertCatalogMediaScope(
+  storeId: string,
+  paths: { sourcePath: string; thumbnailPath: string },
+): void {
+  const prefix = `catalog/${storeId}/`;
+  if (
+    !paths.sourcePath.startsWith(prefix) ||
+    !paths.thumbnailPath.startsWith(prefix)
+  ) {
+    throw new AppError({
+      code: "authorization_denied",
+      source: "app-functions/catalog-media-scope",
+      message: `Catalog media does not belong to store ${storeId}.`,
+      userMessage: "That image does not belong to this store.",
+    });
+  }
 }

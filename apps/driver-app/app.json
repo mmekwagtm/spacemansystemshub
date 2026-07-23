@@ -8,11 +8,37 @@
     "scheme": "spaceman-driver",
     "android": {
       "package": "com.driver.app",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/spaceman-icon-driver.png",
+        "backgroundColor": "#87CEEB"
+      }
     },
-    "plugins": ["expo-router"],
+    "icon": "./assets/spaceman-icon-driver.png",
+    "splash": {
+      "image": "./assets/spaceman-icon-driver.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#87CEEB"
+    },
+    "plugins": [
+      "expo-router"
+    ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a1400174-022c-465a-adb8-7a99f69ec421"
+      }
+    },
+    "owner": "spaceman-builder",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a1400174-022c-465a-adb8-7a99f69ec421"
+    },
+    "ios": {}
   }
 }

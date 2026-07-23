@@ -5,7 +5,7 @@ import type {
   NeedsActionReason,
   PaymentStatus,
   RefundStatus,
-  UserStatus
+  UserStatus,
 } from "@spaceman/app-core";
 
 export interface DocumentMetadata {
@@ -78,14 +78,46 @@ export interface BootstrapCustomerProfileInput {
 
 export type StoreStatus = "draft" | "active" | "suspended" | "archived";
 export type ItemStatus = "draft" | "active" | "hidden" | "archived";
+export type StoreApprovalState = "pending" | "approved" | "rejected";
+export type CatalogSource =
+  "manual" | "merchant" | "google_places" | "catalog_csv" | "catalog_api";
+
+export interface CatalogMedia {
+  sourcePath: string;
+  thumbnailPath: string;
+  altText: string;
+  contentType: "image/jpeg" | "image/png" | "image/webp";
+  sizeBytes: number;
+  sourceUrl?: string;
+  thumbnailUrl?: string;
+  attribution?: string;
+}
+
+export interface OpeningHoursPeriod {
+  day: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  closed: boolean;
+  opensAt?: string;
+  closesAt?: string;
+}
 
 export interface Store extends DocumentMetadata {
   id: string;
   merchantId: string;
   name: string;
+  searchName: string;
+  category: string;
+  description: string;
   status: StoreStatus;
+  approvalState: StoreApprovalState;
+  source: CatalogSource;
+  sourceId?: string;
   deliveryZoneIds: string[];
   address: DeliveryAddress;
+  openingHours: OpeningHoursPeriod[];
+  openForOrders: boolean;
+  minimumOrder: Money;
+  cardMedia?: CatalogMedia;
+  heroMedia?: CatalogMedia;
   imageUrl?: string;
 }
 
@@ -93,9 +125,18 @@ export interface Item extends DocumentMetadata {
   id: string;
   storeId: string;
   name: string;
+  searchName: string;
   description?: string;
   status: ItemStatus;
+  available: boolean;
   price: Money;
+  categoryLabel: string;
+  sortOrder: number;
+  source: CatalogSource;
+  sourceId?: string;
+  importBatchId?: string;
+  imageAlt: string;
+  media?: CatalogMedia;
   imageUrl?: string;
   categoryId?: string;
 }
@@ -236,7 +277,8 @@ export interface Notification extends DocumentMetadata {
 }
 
 export type NotificationChannel = "in_app" | "fcm";
-export type NotificationOutboxStatus = "pending" | "sent" | "failed" | "suppressed";
+export type NotificationOutboxStatus =
+  "pending" | "sent" | "failed" | "suppressed";
 
 export interface NotificationOutbox extends DocumentMetadata {
   id: string;
@@ -296,21 +338,43 @@ export interface PlatformSettings extends DocumentMetadata {
   notificationDeliveryEnabled: boolean;
 }
 
-export type ImportBatchStatus = "pending" | "validating" | "applied" | "failed" | "cancelled";
+export type ImportBatchStatus =
+  | "staged"
+  | "validating"
+  | "ready"
+  | "applying"
+  | "applied"
+  | "failed"
+  | "cancelled";
+
+export interface ImportBatchRow {
+  id: string;
+  batchId: string;
+  rowNumber: number;
+  selected: boolean;
+  duplicateOf?: string;
+  valid: boolean;
+  errors: string[];
+  normalized: Omit<UpsertItemInput, "itemId">;
+}
 
 export interface ImportBatch extends DocumentMetadata {
   id: string;
   storeId: string;
   requestedBy: string;
-  sourceType: "catalog_csv" | "catalog_api";
+  sourceType: "google_places" | "catalog_csv" | "catalog_api";
+  sourceReference?: string;
   status: ImportBatchStatus;
+  contentHash: string;
   totalRows: number;
   acceptedRows: number;
   rejectedRows: number;
+  committedRows: number;
   errorSummary?: string;
 }
 
-export type SettlementStatus = "pending" | "calculated" | "approved" | "paid" | "failed" | "void";
+export type SettlementStatus =
+  "pending" | "calculated" | "approved" | "paid" | "failed" | "void";
 
 export interface Settlement extends DocumentMetadata {
   id: string;
@@ -372,10 +436,48 @@ export interface UpsertStoreInput {
   storeId?: string;
   merchantId: string;
   name: string;
+  category?: string;
+  description?: string;
   status: StoreStatus;
   deliveryZoneIds: string[];
   address: DeliveryAddress;
+  openingHours?: OpeningHoursPeriod[];
+  openForOrders?: boolean;
+  minimumOrder?: Money;
+  cardMedia?: CatalogMedia;
+  heroMedia?: CatalogMedia;
   imageUrl?: string;
+}
+
+export interface SubmitMerchantStoreInput {
+  storeId?: string;
+  name: string;
+  category: string;
+  description: string;
+  address: DeliveryAddress;
+  openingHours: OpeningHoursPeriod[];
+  minimumOrder: Money;
+  cardMedia?: CatalogMedia;
+  heroMedia?: CatalogMedia;
+}
+
+export interface ReviewStoreSubmissionInput {
+  storeId: string;
+  decision: "approve" | "reject";
+  reason?: string;
+  deliveryZoneIds?: string[];
+}
+
+export interface UpdateMerchantStoreInput {
+  storeId: string;
+  name: string;
+  category: string;
+  description: string;
+  openingHours: OpeningHoursPeriod[];
+  openForOrders: boolean;
+  minimumOrder: Money;
+  cardMedia?: CatalogMedia;
+  heroMedia?: CatalogMedia;
 }
 
 export interface UpsertItemInput {
@@ -385,12 +487,78 @@ export interface UpsertItemInput {
   description?: string;
   status: ItemStatus;
   price: Money;
+  available?: boolean;
+  categoryLabel?: string;
+  sortOrder?: number;
+  source?: Extract<
+    CatalogSource,
+    "manual" | "merchant" | "catalog_csv" | "catalog_api"
+  >;
+  sourceId?: string;
+  importBatchId?: string;
+  imageAlt?: string;
+  media?: CatalogMedia;
   imageUrl?: string;
   categoryId?: string;
 }
 
+export interface SetItemAvailabilityInput {
+  itemId: string;
+  available: boolean;
+}
+
 export interface RetireCatalogItemInput {
   itemId: string;
+}
+
+export interface StorePlaceSearchInput {
+  query: string;
+  sessionToken?: string;
+}
+
+export interface StorePlaceCandidate {
+  placeId: string;
+  name: string;
+  formattedAddress: string;
+  category: string;
+  coordinates: Coordinates;
+}
+
+export interface StageGoogleStoreImportInput {
+  placeId: string;
+  merchantId: string;
+}
+
+export interface StageCsvCatalogImportInput {
+  storeId: string;
+  csv: string;
+}
+
+export interface StageApiCatalogImportInput {
+  storeId: string;
+  url: string;
+}
+
+export interface CommitCatalogImportInput {
+  batchId: string;
+  selectedRowIds: string[];
+}
+
+export interface CancelCatalogImportInput {
+  batchId: string;
+}
+
+export interface CleanupCatalogMediaInput {
+  storeId: string;
+  sourcePath: string;
+  thumbnailPath: string;
+}
+
+export interface CatalogPageRequest {
+  cursor?: string;
+  limit?: number;
+  category?: string;
+  search?: string;
 }
 
 export interface RefundRequestInput {

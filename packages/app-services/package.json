@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@spaceman/app-database": "workspace:*",
     "@spaceman/app-errors": "workspace:*",
     "@spaceman/app-firebase": "workspace:*",
     "@spaceman/app-types": "workspace:*",

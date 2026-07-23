@@ -158,9 +158,11 @@ privileged dev-only cleanup command may remove records tagged with that exact
 run ID. Never run broad collection cleanup.
 
 Use Vitest and Testing Library for shared/web code, Jest/Expo for native code,
-Playwright for web E2E, and Maestro on Expo development builds. Testing,
-commits, and deployments are manual. A production deployment still requires
-an explicit production acceptance review and approval.
+and Playwright for web E2E. Native acceptance uses Expo compatibility/export
+checks plus owner-operated physical-device testing on self-contained EAS
+preview APKs. Testing, commits, and deployments are manual. A production
+deployment still requires an explicit production acceptance review and
+approval.
 
 ## 8. Working Style and Documentation
 

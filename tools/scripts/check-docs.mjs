@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 const repositoryRoot = resolve(import.meta.dirname, "../..");
 const projectDocsDirectory = resolve(repositoryRoot, "docs/project-docs");
+const plansDocsDirectory = resolve(repositoryRoot, "docs/plans-docs");
 const forbiddenMarker = "<" + "FILL-IN>";
 const documents = [resolve(repositoryRoot, "AGENTS.md")];
 
@@ -15,13 +16,16 @@ async function collectMarkdownFiles(directory) {
         return collectMarkdownFiles(entryPath);
       }
       return entry.name.endsWith(".md") ? [entryPath] : [];
-    })
+    }),
   );
 
   return files.flat();
 }
 
-documents.push(...(await collectMarkdownFiles(projectDocsDirectory)));
+documents.push(
+  ...(await collectMarkdownFiles(projectDocsDirectory)),
+  ...(await collectMarkdownFiles(plansDocsDirectory)),
+);
 
 const failures = [];
 for (const documentPath of documents) {
@@ -32,8 +36,12 @@ for (const documentPath of documents) {
 }
 
 if (failures.length > 0) {
-  console.error(`Documentation contains unresolved markers: ${failures.join(", ")}`);
+  console.error(
+    `Documentation contains unresolved markers: ${failures.join(", ")}`,
+  );
   process.exitCode = 1;
 } else {
-  console.log(`Documentation check passed for ${documents.length} governance/project documents.`);
+  console.log(
+    `Documentation check passed for ${documents.length} governance/project/plan documents.`,
+  );
 }

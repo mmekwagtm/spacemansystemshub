@@ -3,17 +3,27 @@ import { parseExpoFirebaseConfig } from "@spaceman/app-config";
 import {
   createCallableGateway,
   createFirebaseAuthGateway,
-  createNativeFirebaseClient
+  createNativeFirebaseClient,
 } from "@spaceman/app-firebase";
-import { createIdentityService } from "@spaceman/app-services";
+import {
+  createFirestoreRepositories,
+  createIdentityService,
+  createMarketplaceService,
+} from "@spaceman/app-services";
 
 const client = createNativeFirebaseClient(
   parseExpoFirebaseConfig(process.env),
   process.env.EXPO_PUBLIC_FUNCTIONS_REGION ?? "africa-south1",
-  AsyncStorage
+  AsyncStorage,
 );
+
+const callable = createCallableGateway(client);
 
 export const customerIdentityService = createIdentityService(
   createFirebaseAuthGateway(client),
-  createCallableGateway(client)
+  callable,
+);
+export const customerMarketplaceService = createMarketplaceService(
+  createFirestoreRepositories(client.firestore),
+  callable,
 );

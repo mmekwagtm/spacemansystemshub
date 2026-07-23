@@ -7,7 +7,7 @@
     "noImplicitOverride": true,
     "useUnknownInCatchVariables": true,
     "skipLibCheck": true,
-    "types": ["jest"]
+    "types": ["jest", "node"]
   },
   "include": [
     "app/**/*.ts",

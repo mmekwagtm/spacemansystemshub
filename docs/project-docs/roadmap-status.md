@@ -3,12 +3,13 @@
 Overall accepted progress is **37.5%**: three of the fixed eight phases have
 passed their exit gates.
 
+<!-- prettier-ignore -->
 | Phase | Progress | Status | Milestone / exit condition |
 | --- | ---: | --- | --- |
 | 0. Architecture truth | 100% | Complete | Architecture and visual sources are preserved, decisions are reconciled, and project docs have no unresolved markers. |
 | 1. Monorepo baseline | 100% | Complete | The pnpm workspace, five app shells, shared packages, dependency state, full validation, three-web-app Playwright smoke, and owner-reported five-app live smoke pass. |
 | 2. Identity and security | 100% | Complete | Shared customer/staff flows, canonical guards, trusted provisioning/claims, cross-role/user/store/driver denials, replay/inactive denial, Rules, App Check decision, exact tagged cleanup, and current five-app manual identity/session evidence pass. |
-| 3. Marketplace | 0% | Not started | Authenticated scoped catalog management and consistent active-catalog reads pass across admin, merchant, and customer channels. |
+| 3. Marketplace | 0% | Manual acceptance pending | Source, app interfaces, automated tests, Rules/index/Functions deployment, Playwright screenshots, and the live zero-residue matrix are complete. Owner five-app smoke and manual acceptance remain. |
 | 4. Maps, checkout, and payment | 0% | Not started | Server-verified serviceability/fee and Paystack verification create exactly one paid order per provider reference. |
 | 5. Fulfillment | 0% | Not started | The paid-to-delivered lifecycle passes across merchant, admin, driver, and customer with assignment/version safeguards. |
 | 6. Operations | 0% | Not started | Failures are visible, auditable, notified, recoverable, and financially reconciled with retention and settlement evidence. |
@@ -24,6 +25,14 @@ move that endpoint.
 
 ## Current milestone
 
-Phase 2 is complete. Phase 3 (Marketplace) is the next milestone and remains at
-0% / not started. It begins only from its approved bounded plan; Phase 2 scope
-must not be reopened implicitly during marketplace implementation.
+Phase 2 is complete. Phase 3 (Marketplace) is in progress at **0% accepted**.
+The bounded source implementation, runtime update, shared contracts,
+repositories/queries, trusted Functions, Rules/indexes, import/media workflows,
+four app interfaces, automated tests, development deployment, and Playwright
+screenshots are complete in the reviewed Phase 3 implementation. Cloud Run callable
+transport IAM is owner-approved and applied. Exact live run
+`phase3_marketplace_1784749355621_646a3a94` passed all marketplace/security
+cases and verified zero residue. The owner-run five-app/manual acceptance must
+still pass. Its approved contract is `docs/plans-docs/PLAN-phase-3.md`; source
+and automated acceptance do not increase accepted progress or the overall
+37.5% value before that gate passes.

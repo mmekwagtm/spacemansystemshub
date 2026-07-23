@@ -32,6 +32,32 @@ service cloud.firestore {
         && request.auth.token.storeIds.hasAny([storeId]);
     }
 
+    function pendingMerchantOwner(store) {
+      return signedIn()
+        && request.auth.token.role == 'merchant'
+        && (request.auth.token.status == 'pending_profile' || request.auth.token.status == 'pending_approval')
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'merchant'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == request.auth.token.status
+        && store.merchantId == request.auth.uid
+        && store.status == 'draft'
+        && store.approvalState == 'pending';
+    }
+
+    function activeMerchantOwner(store) {
+      return hasRole('merchant') && store.merchantId == request.auth.uid;
+    }
+
+    function publicStore(store) {
+      return store.status == 'active' && store.approvalState == 'approved';
+    }
+
+    function publicItem(item) {
+      return item.status == 'active'
+        && exists(/databases/$(database)/documents/stores/$(item.storeId))
+        && publicStore(get(/databases/$(database)/documents/stores/$(item.storeId)).data);
+    }
+
     function assignedDriver(orderId) {
       return hasRole('driver')
         && exists(/databases/$(database)/documents/driverAssignments/$(orderId))
@@ -62,13 +88,34 @@ service cloud.firestore {
     }
 
     match /stores/{storeId} {
-      allow get, list: if resource.data.status == 'active' || platformStaff() || merchantFor(storeId);
+      allow get, list: if publicStore(resource.data)
+        || platformStaff()
+        || merchantFor(storeId)
+        || activeMerchantOwner(resource.data)
+        || pendingMerchantOwner(resource.data);
       allow write: if false;
     }
 
     match /items/{itemId} {
-      allow get, list: if resource.data.status == 'active' || platformStaff() || merchantFor(resource.data.storeId);
+      allow get, list: if publicItem(resource.data)
+        || platformStaff()
+        || merchantFor(resource.data.storeId);
       allow write: if false;
+    }
+
+    match /importBatches/{batchId} {
+      allow get, list: if platformStaff()
+        || (active() && resource.data.requestedBy == request.auth.uid);
+      allow write: if false;
+
+      match /rows/{rowId} {
+        allow get, list: if platformStaff()
+          || (
+            active()
+            && get(/databases/$(database)/documents/importBatches/$(batchId)).data.requestedBy == request.auth.uid
+          );
+        allow write: if false;
+      }
     }
 
     match /orders/{orderId} {

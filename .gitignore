@@ -6,6 +6,7 @@ coverage/
 .turbo/
 .expo/
 .firebase/
+.vscode/
 firebase-debug.log
 firestore-debug.log
 storage-debug.log

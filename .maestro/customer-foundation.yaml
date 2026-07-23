@@ -1,4 +1,0 @@
-appId: ${MAESTRO_CUSTOMER_APP_ID}
----
-- launchApp
-- assertVisible: "Marketplace foundation"

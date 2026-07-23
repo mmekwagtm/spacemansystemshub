@@ -16,6 +16,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@spaceman/app-database": "workspace:*",
+    "@spaceman/app-services": "workspace:*",
+    "@spaceman/app-types": "workspace:*",
     "@tanstack/react-query": "^5.81.5"
   }
 }

@@ -1,0 +1,453 @@
+mmekwa@mmekwa-L1420:~/Desktop/projects/spacemansystems$ corepack pnpm docs:check
+corepack pnpm typecheck
+corepack pnpm lint
+corepack pnpm test
+corepack pnpm build
+
+> spacemansystems@0.1.0 docs:check /home/mmekwa/Desktop/projects/spacemansystems
+> node tools/scripts/check-docs.mjs
+
+Documentation check passed for 19 governance/project/plan documents.
+
+> spacemansystems@0.1.0 typecheck /home/mmekwa/Desktop/projects/spacemansystems
+> pnpm -r --if-present run typecheck
+
+Scope: 21 of 22 workspace projects
+firebase/functions typecheck$ tsc --noEmit
+└─ Done in 25.8s
+packages/app-core typecheck$ tsc --noEmit
+└─ Done in 9s
+packages/app-errors typecheck$ tsc --noEmit
+└─ Done in 4.8s
+packages/app-state typecheck$ tsc --noEmit
+└─ Done in 3.7s
+packages/app-config typecheck$ tsc --noEmit
+└─ Done in 8.5s
+packages/app-types typecheck$ tsc --noEmit
+└─ Done in 5.8s
+packages/app-ui typecheck$ tsc --noEmit
+└─ Done in 5.7s
+packages/app-validation typecheck$ tsc --noEmit
+└─ Done in 9.2s
+packages/app-database typecheck$ tsc --noEmit
+└─ Done in 10.3s
+packages/app-functions typecheck$ tsc --noEmit
+└─ Done in 14.7s
+packages/app-maps typecheck$ tsc --noEmit
+└─ Done in 7.6s
+packages/app-notifications typecheck$ tsc --noEmit
+└─ Done in 6.6s
+packages/shared typecheck$ tsc --noEmit
+└─ Done in 7s
+packages/app-firebase typecheck$ tsc --noEmit
+└─ Done in 7.8s
+packages/app-services typecheck$ tsc --noEmit
+└─ Done in 7.8s
+apps/driver-app typecheck$ tsc --noEmit
+└─ Done in 18.1s
+packages/app-query typecheck$ tsc --noEmit
+└─ Done in 11.8s
+apps/admin-web typecheck$ tsc -p tsconfig.app.json --noEmit
+└─ Done in 30s
+apps/customer-app typecheck$ tsc --noEmit
+└─ Done in 24.9s
+apps/customer-web typecheck$ tsc -p tsconfig.app.json --noEmit
+└─ Done in 27.6s
+apps/merchant-web typecheck$ tsc -p tsconfig.app.json --noEmit
+└─ Done in 25.1s
+
+> spacemansystems@0.1.0 lint /home/mmekwa/Desktop/projects/spacemansystems
+> pnpm -r --if-present run lint
+
+Scope: 21 of 22 workspace projects
+firebase/functions lint$ eslint src --max-warnings 0
+└─ Done in 9.5s
+packages/app-core lint$ eslint src --max-warnings 0
+└─ Done in 6.5s
+packages/app-errors lint$ eslint src --max-warnings 0
+└─ Done in 5.1s
+packages/app-state lint$ eslint src --max-warnings 0
+└─ Done in 3.8s
+packages/app-config lint$ eslint src --max-warnings 0
+└─ Done in 4.3s
+packages/app-types lint$ eslint src --max-warnings 0
+└─ Done in 4.8s
+packages/app-ui lint$ eslint src --max-warnings 0
+└─ Done in 4.6s
+packages/app-validation lint$ eslint src --max-warnings 0
+└─ Done in 5s
+packages/app-database lint$ eslint src --max-warnings 0
+└─ Done in 4.7s
+packages/app-functions lint$ eslint src --max-warnings 0
+└─ Done in 4.9s
+packages/app-maps lint$ eslint src --max-warnings 0
+└─ Done in 4.2s
+packages/app-notifications lint$ eslint src --max-warnings 0
+└─ Done in 4.1s
+packages/shared lint$ eslint src --max-warnings 0
+└─ Done in 3.4s
+packages/app-firebase lint$ eslint src --max-warnings 0
+└─ Done in 3.6s
+packages/app-services lint$ eslint src --max-warnings 0
+└─ Done in 3.8s
+apps/driver-app lint$ eslint app src --max-warnings 0
+└─ Done in 5.1s
+packages/app-query lint$ eslint src --max-warnings 0
+└─ Done in 4.8s
+apps/admin-web lint$ eslint src --max-warnings 0
+└─ Done in 9.2s
+apps/customer-app lint$ eslint app src --max-warnings 0
+└─ Done in 7.7s
+apps/customer-web lint$ eslint src --max-warnings 0
+└─ Done in 7.3s
+apps/merchant-web lint$ eslint src --max-warnings 0
+└─ Done in 6.7s
+
+> spacemansystems@0.1.0 test /home/mmekwa/Desktop/projects/spacemansystems
+> pnpm -r --if-present run test
+
+Scope: 21 of 22 workspace projects
+firebase/functions test$ vitest run
+│  RUN  v3.2.7 /home/mmekwa/Desktop/projects/spacemansystems/firebase/functions
+│  ✓ src/index.test.ts (1 test) 30ms
+│  Test Files  1 passed (1)
+│       Tests  1 passed (1)
+│    Start at  20:32:47
+│    Duration  2.11s (transform 339ms, setup 0ms, collect 227ms, tests 30ms, environment 1ms, prepare 772ms)
+└─ Done in 6.2s
+packages/app-core test$ vitest run
+│  RUN  v3.2.7 /home/mmekwa/Desktop/projects/spacemansystems/packages/app-core
+│  ✓ src/index.test.ts (3 tests) 684ms
+│    ✓ fulfillment status contract > formats ZAR minor amounts without floating-point business logic  600ms
+│  Test Files  1 passed (1)
+│       Tests  3 passed (3)
+│    Start at  20:32:47
+│    Duration  2.90s (transform 545ms, setup 0ms, collect 367ms, tests 684ms, environment 1ms, prepare 751ms)
+└─ Done in 6.6s
+packages/app-validation test$ vitest run
+│  RUN  v3.2.7 /home/mmekwa/Desktop/projects/spacemansystems/packages/app-validation
+│  ✓ src/index.test.ts (7 tests) 73ms
+│  Test Files  1 passed (1)
+│       Tests  7 passed (7)
+│    Start at  20:32:51
+│    Duration  1.69s (transform 539ms, setup 0ms, collect 677ms, tests 73ms, environment 1ms, prepare 372ms)
+└─ Done in 3.6s
+packages/app-database test$ vitest run
+│  RUN  v3.2.7 /home/mmekwa/Desktop/projects/spacemansystems/packages/app-database
+│  ✓ src/index.test.ts (3 tests) 121ms
+│  Test Files  1 passed (1)
+│       Tests  3 passed (3)
+│    Start at  20:32:56
+│    Duration  3.93s (transform 612ms, setup 0ms, collect 2.22s, tests 121ms, environment 3ms, prepare 647ms)
+└─ Done in 6.6s
+packages/app-functions test$ vitest run
+│  RUN  v3.2.7 /home/mmekwa/Desktop/projects/spacemansystems/packages/app-functions
+│  ✓ src/index.test.ts (13 tests) 74ms
+│  Test Files  1 passed (1)
+│       Tests  13 passed (13)
+│    Start at  20:32:56
+│    Duration  2.31s (transform 651ms, setup 0ms, collect 645ms, tests 74ms, environment 1ms, prepare 674ms)
+└─ Done in 4.8s
+packages/shared test$ vitest run
+│  RUN  v3.2.7 /home/mmekwa/Desktop/projects/spacemansystems/packages/shared
+│  ✓ src/auth/index.test.ts (2 tests) 51ms
+│  Test Files  1 passed (1)
+│       Tests  2 passed (2)
+│    Start at  20:33:00
+│    Duration  1.33s (transform 454ms, setup 0ms, collect 366ms, tests 51ms, environment 1ms, prepare 340ms)
+└─ Done in 3.5s
+apps/driver-app test$ jest --runInBand
+│ PASS src/app-contract.test.ts
+│   driver app foundation
+│     ✓ requires invited driver identity before operations (8 ms)
+│ Test Suites: 1 passed, 1 total
+│ Tests:       1 passed, 1 total
+│ Snapshots:   0 total
+│ Time:        9.485 s
+│ Ran all test suites.
+└─ Done in 17.9s
+apps/admin-web test$ vitest run
+│  RUN  v3.2.7 /home/mmekwa/Desktop/projects/spacemansystems/apps/admin-web
+│  ✓ src/MarketplacePanel.test.tsx (1 test) 1163ms
+│    ✓ Admin marketplace > exposes trusted manual, Google, CSV, and API workflows  1150ms
+│  ✓ src/App.test.tsx (1 test) 530ms
+│    ✓ Admin App > requires invited staff authentication  525ms
+│  Test Files  2 passed (2)
+│       Tests  2 passed (2)
+│    Start at  20:33:22
+│    Duration  13.36s (transform 1.30s, setup 888ms, collect 3.86s, tests 1.69s, environment 3.95s, prepare 1.09s)
+└─ Done in 15.9s
+apps/customer-app test$ jest --runInBand
+│ PASS src/app-contract.test.ts
+│   customer app foundation
+│     ✓ keeps guest browsing separate from protected customer actions (17 ms)
+│     ✓ wires the native route to the shared bounded active-catalog hooks (17 ms)
+│     ✓ provides the shared query cache above every Expo Router screen (9 ms)
+│ Test Suites: 1 passed, 1 total
+│ Tests:       3 passed, 3 total
+│ Snapshots:   0 total
+│ Time:        3.314 s, estimated 6 s
+│ Ran all test suites.
+└─ Done in 6.2s
+apps/customer-web test$ vitest run
+│  RUN  v3.2.7 /home/mmekwa/Desktop/projects/spacemansystems/apps/customer-web
+│  ✓ src/App.test.tsx (1 test) 649ms
+│    ✓ Customer App > keeps browsing public and protects checkout behind identity  642ms
+│  ✓ src/MarketplacePanel.test.tsx (1 test) 543ms
+│    ✓ Customer marketplace > shows the same active catalog to guests including unavailable states  538ms
+│  Test Files  2 passed (2)
+│       Tests  2 passed (2)
+│    Start at  20:33:28
+│    Duration  12.52s (transform 915ms, setup 1.07s, collect 2.44s, tests 1.19s, environment 5.01s, prepare 1.14s)
+└─ Done in 15.4s
+apps/merchant-web test$ vitest run
+│  RUN  v3.2.7 /home/mmekwa/Desktop/projects/spacemansystems/apps/merchant-web
+│  ✓ src/MarketplacePanel.test.tsx (1 test) 404ms
+│    ✓ Merchant marketplace > keeps pending onboarding limited to a draft submission  400ms
+│  ✓ src/App.test.tsx (1 test) 384ms
+│    ✓ Merchant App > requires invited merchant authentication  379ms
+│  Test Files  2 passed (2)
+│       Tests  2 passed (2)
+│    Start at  20:33:38
+│    Duration  10.23s (transform 740ms, setup 738ms, collect 2.10s, tests 789ms, environment 4.19s, prepare 917ms)
+└─ Done in 12.8s
+
+> spacemansystems@0.1.0 build /home/mmekwa/Desktop/projects/spacemansystems
+> pnpm -r --if-present run build
+
+Scope: 21 of 22 workspace projects
+firebase/functions build$ tsup src/index.ts --format esm --target node22 --out-dir lib --clean --external firebase-adm…
+│ CLI Building entry: src/index.ts
+│ CLI Using tsconfig: tsconfig.json
+│ CLI tsup v8.5.1
+│ CLI Target: node22
+│ CLI Cleaning output folder
+│ ESM Build start
+│ ESM lib/index.js 226.46 KB
+│ ESM ⚡️ Build success in 1108ms
+└─ Done in 3.5s
+packages/app-core build$ tsc --noEmit
+└─ Done in 8.4s
+packages/app-errors build$ tsc --noEmit
+└─ Done in 5.6s
+packages/app-state build$ tsc --noEmit
+└─ Done in 3.4s
+packages/app-config build$ tsc --noEmit
+└─ Done in 8.2s
+packages/app-types build$ tsc --noEmit
+└─ Done in 5.6s
+packages/app-ui build$ tsc --noEmit
+└─ Done in 5.9s
+packages/app-validation build$ tsc --noEmit
+└─ Done in 9.5s
+packages/app-database build$ tsc --noEmit
+└─ Done in 9.5s
+packages/app-functions build$ tsc --noEmit
+└─ Done in 14.3s
+packages/app-maps build$ tsc --noEmit
+└─ Done in 6.2s
+packages/app-notifications build$ tsc --noEmit
+└─ Done in 5.8s
+packages/shared build$ tsc --noEmit
+└─ Done in 8.2s
+packages/app-firebase build$ tsc --noEmit
+└─ Done in 8.5s
+packages/app-services build$ tsc --noEmit
+└─ Done in 7.7s
+apps/driver-app build$ tsc --noEmit
+└─ Done in 16.7s
+packages/app-query build$ tsc --noEmit
+└─ Done in 13.7s
+apps/admin-web build$ tsc -p tsconfig.app.json --noEmit && vite build
+[4 lines collapsed]
+│ computing gzip size...
+│ dist/index.html                             0.68 kB │ gzip:   0.35 kB
+│ dist/assets/index-DFZoLQTM.css              2.22 kB │ gzip:   0.85 kB
+│ dist/assets/App-C13N3uC8.js                 7.46 kB │ gzip:   2.32 kB
+│ dist/assets/MarketplacePanel-TQxAfohB.js   10.95 kB │ gzip:   3.28 kB
+│ dist/assets/query-B_frIeoR.js              38.63 kB │ gzip:  11.67 kB
+│ dist/assets/index-Cayi16EV.js              78.21 kB │ gzip:  20.76 kB
+│ dist/assets/react-BLXyby6r.js             231.11 kB │ gzip:  73.88 kB
+│ dist/assets/firebase-DfaYUQu1.js          513.16 kB │ gzip: 120.92 kB
+│ ✓ built in 22.84s
+└─ Done in 50.3s
+apps/customer-app build$ tsc --noEmit
+└─ Done in 21.6s
+apps/customer-web build$ tsc -p tsconfig.app.json --noEmit && vite build
+[4 lines collapsed]
+│ computing gzip size...
+│ dist/index.html                             0.69 kB │ gzip:   0.35 kB
+│ dist/assets/index-yXhs3NZZ.css              2.80 kB │ gzip:   1.06 kB
+│ dist/assets/MarketplacePanel-p-fgWuFz.js    3.87 kB │ gzip:   1.41 kB
+│ dist/assets/App-SpY4o2yq.js                 6.00 kB │ gzip:   2.06 kB
+│ dist/assets/query-B_frIeoR.js              38.63 kB │ gzip:  11.67 kB
+│ dist/assets/index-BDY04sup.js              74.98 kB │ gzip:  19.78 kB
+│ dist/assets/react-BLXyby6r.js             231.11 kB │ gzip:  73.88 kB
+│ dist/assets/firebase-Bo7Eeb1k.js          496.03 kB │ gzip: 116.86 kB
+│ ✓ built in 21.52s
+└─ Done in 46.7s
+apps/merchant-web build$ tsc -p tsconfig.app.json --noEmit && vite build
+[4 lines collapsed]
+│ computing gzip size...
+│ dist/index.html                             0.68 kB │ gzip:   0.35 kB
+│ dist/assets/index-DbPshVCs.css              1.93 kB │ gzip:   0.79 kB
+│ dist/assets/App-C__ehhyl.js                 5.36 kB │ gzip:   1.98 kB
+│ dist/assets/MarketplacePanel-DoyRbq53.js    8.12 kB │ gzip:   2.27 kB
+│ dist/assets/query-B_frIeoR.js              38.63 kB │ gzip:  11.67 kB
+│ dist/assets/index-VcOODWLO.js              78.05 kB │ gzip:  20.67 kB
+│ dist/assets/react-BLXyby6r.js             231.11 kB │ gzip:  73.88 kB
+│ dist/assets/firebase-DfaYUQu1.js          513.16 kB │ gzip: 120.92 kB
+│ ✓ built in 12.48s
+└─ Done in 36.7s
+mmekwa@mmekwa-L1420:~/Desktop/projects/spacemansystems$
+
+
+
+
+
+
+
+mmekwa@mmekwa-L1420:~/Desktop/projects/spacemansystems$ gcloud secrets versions list GOOGLE_MAPS_SERVER_API_KEY --project=spacemansystemsbackend --format='table(name,state,createTime)'
+gcloud secrets versions list CATALOG_IMPORT_ALLOWED_HOSTS --project=spacemansystemsbackend --format='table(name,state,createTime)'
+NAME  STATE    CREATED
+2     enabled  2026-07-22T17:59:18
+1     enabled  2026-07-21T19:19:11
+NAME  STATE    CREATED
+3     enabled  2026-07-22T19:12:52
+2     enabled  2026-07-22T19:08:56
+1     enabled  2026-07-21T19:19:27
+mmekwa@mmekwa-L1420:~/Desktop/projects/spacemansystems$ rg -n 'export const (upsertStore|submitMerchantStore|reviewStoreSubmission|updateMerchantStore|upsertItem|setItemAvailability|retireCatalogItem|searchStorePlaces|stageGoogleStoreImport|stageCsvCatalogImport|stageApiCatalogImport|commitCatalogImport|cancelCatalogImport|cleanupCatalogMedia)' firebase/functions/src/marketplace.ts
+487:export const upsertStore = onCall(
+564:export const submitMerchantStore = onCall(
+652:export const reviewStoreSubmission = onCall(
+786:export const updateMerchantStore = onCall(
+856:export const upsertItem = onCall(
+938:export const setItemAvailability = onCall(
+961:export const retireCatalogItem = onCall(
+1037:export const searchStorePlaces = onCall(
+1070:export const stageGoogleStoreImport = onCall(
+1355:export const stageCsvCatalogImport = onCall(
+1396:export const stageApiCatalogImport = onCall(
+1468:export const commitCatalogImport = onCall(
+1608:export const cancelCatalogImport = onCall(
+1633:export const cleanupCatalogMedia = onCall(
+mmekwa@mmekwa-L1420:~/Desktop/projects/spacemansystems$ corepack pnpm --dir firebase/functions run build
+
+> @spaceman/firebase-functions@0.1.0 build /home/mmekwa/Desktop/projects/spacemansystems/firebase/functions
+> tsup src/index.ts --format esm --target node22 --out-dir lib --clean --external firebase-admin --external firebase-functions
+
+CLI Building entry: src/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: node22
+CLI Cleaning output folder
+ESM Build start
+ESM lib/index.js 226.46 KB
+ESM ⚡️ Build success in 1077ms
+mmekwa@mmekwa-L1420:~/Desktop/projects/spacemansystems$
+
+
+
+
+
+
+mmekwa@mmekwa-L1420:~/Desktop/projects/spacemansystems$ corepack pnpm test:web:e2e
+
+> spacemansystems@0.1.0 test:web:e2e /home/mmekwa/Desktop/projects/spacemansystems
+> corepack pnpm --filter @spaceman/admin-web build && corepack pnpm --filter @spaceman/merchant-web build && corepack pnpm --filter @spaceman/customer-web build && playwright test
+
+
+> @spaceman/admin-web@0.1.0 build /home/mmekwa/Desktop/projects/spacemansystems/apps/admin-web
+> tsc -p tsconfig.app.json --noEmit && vite build
+
+vite v6.4.3 building for production...
+✓ 131 modules transformed.
+dist/index.html                             0.68 kB │ gzip:   0.35 kB
+dist/assets/index-DFZoLQTM.css              2.22 kB │ gzip:   0.85 kB
+dist/assets/App-C13N3uC8.js                 7.46 kB │ gzip:   2.32 kB
+dist/assets/MarketplacePanel-TQxAfohB.js   10.95 kB │ gzip:   3.28 kB
+dist/assets/query-B_frIeoR.js              38.63 kB │ gzip:  11.67 kB
+dist/assets/index-Cayi16EV.js              78.21 kB │ gzip:  20.76 kB
+dist/assets/react-BLXyby6r.js             231.11 kB │ gzip:  73.88 kB
+dist/assets/firebase-DfaYUQu1.js          513.16 kB │ gzip: 120.92 kB
+✓ built in 19.89s
+
+> @spaceman/merchant-web@0.1.0 build /home/mmekwa/Desktop/projects/spacemansystems/apps/merchant-web
+> tsc -p tsconfig.app.json --noEmit && vite build
+
+vite v6.4.3 building for production...
+✓ 131 modules transformed.
+dist/index.html                             0.68 kB │ gzip:   0.35 kB
+dist/assets/index-DbPshVCs.css              1.93 kB │ gzip:   0.79 kB
+dist/assets/App-C__ehhyl.js                 5.36 kB │ gzip:   1.98 kB
+dist/assets/MarketplacePanel-DoyRbq53.js    8.12 kB │ gzip:   2.27 kB
+dist/assets/query-B_frIeoR.js              38.63 kB │ gzip:  11.67 kB
+dist/assets/index-VcOODWLO.js              78.05 kB │ gzip:  20.67 kB
+dist/assets/react-BLXyby6r.js             231.11 kB │ gzip:  73.88 kB
+dist/assets/firebase-DfaYUQu1.js          513.16 kB │ gzip: 120.92 kB
+✓ built in 15.74s
+
+> @spaceman/customer-web@0.1.0 build /home/mmekwa/Desktop/projects/spacemansystems/apps/customer-web
+> tsc -p tsconfig.app.json --noEmit && vite build
+
+vite v6.4.3 building for production...
+✓ 131 modules transformed.
+dist/index.html                             0.69 kB │ gzip:   0.35 kB
+dist/assets/index-yXhs3NZZ.css              2.80 kB │ gzip:   1.06 kB
+dist/assets/MarketplacePanel-p-fgWuFz.js    3.87 kB │ gzip:   1.41 kB
+dist/assets/App-SpY4o2yq.js                 6.00 kB │ gzip:   2.06 kB
+dist/assets/query-B_frIeoR.js              38.63 kB │ gzip:  11.67 kB
+dist/assets/index-BDY04sup.js              74.98 kB │ gzip:  19.78 kB
+dist/assets/react-BLXyby6r.js             231.11 kB │ gzip:  73.88 kB
+dist/assets/firebase-Bo7Eeb1k.js          496.03 kB │ gzip: 116.86 kB
+✓ built in 15.65s
+
+Running 4 tests using 1 worker
+
+  ✓  1 …n web exposes invitation-only identity and marketplace boundary (26.1s)
+  ✓  2 …web exposes invitation-only identity and scoped catalog boundary (1.7s)
+  ✓  3 …tomer web keeps active-catalog browse public and guards checkout (3.1s)
+  ✓  4 …s:66:5 › customer marketplace remains usable on a phone viewport (3.1s)
+
+  4 passed (1.0m)
+mmekwa@mmekwa-L1420:~/Desktop/projects/spacemansystems$
+
+
+
+
+
+
+
+mmekwa@mmekwa-L1420:~/Desktop/projects/spacemansystems$ (
+  set -a
+  source apps/customer-web/.env.local
+  set +a
+  env -u DEBUG \
+    GOOGLE_CLOUD_PROJECT=spacemansystemsbackend \
+    SPACEMAN_ENVIRONMENT=development \
+    SPACEMAN_FUNCTIONS_REGION="${VITE_FUNCTIONS_REGION:-africa-south1}" \
+    SPACEMAN_FIREBASE_WEB_API_KEY="$VITE_FIREBASE_API_KEY" \
+    SPACEMAN_FIREBASE_STORAGE_BUCKET="$VITE_FIREBASE_STORAGE_BUCKET" \
+    corepack pnpm --dir firebase/functions run test:marketplace:live
+)
+
+> @spaceman/firebase-functions@0.1.0 test:marketplace:live /home/mmekwa/Desktop/projects/spacemansystems/firebase/functions
+> node scripts/live-marketplace.mjs
+
+{
+  "testRunId": "phase3_marketplace_1784749355621_646a3a94",
+  "manualStoreAndItemPublication": "passed",
+  "publicActiveAndUnavailableReads": "passed",
+  "publicSearchAndPendingMerchantQueries": "passed",
+  "inactiveParentAndRetiredItemDenied": "passed",
+  "directMarketplaceWriteDenied": "passed",
+  "merchantApprovalRejectionAndScope": "passed",
+  "crossStoreCommandsDenied": "passed",
+  "csvPreviewSelectionAndReplay": "passed",
+  "allowlistedApiAndPrivateNetworkDenial": "passed",
+  "googlePlacesStoreStaging": "passed",
+  "validInvalidAndPublishedMedia": "passed",
+  "suspendedStaleTokenDenied": "passed"
+}
+Live marketplace fixture cleanup completed and verified.
+mmekwa@mmekwa-L1420:~/Desktop/projects/spacemansystems$

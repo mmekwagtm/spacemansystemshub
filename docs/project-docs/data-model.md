@@ -50,3 +50,36 @@ identity audit metadata. Firebase custom claims mirror role, status,
 claim never overrides the canonical profile. Customer profiles are created by
 `registerCustomerProfile`; staff profiles are created by `createStaffUser`.
 Clients have no direct write access to `users`.
+
+## Phase 3 marketplace contract
+
+`stores/{storeId}` carries category, description, normalized `searchName`,
+source metadata, approval state, operating hours, `openForOrders`, minimum
+order in integer ZAR minor units, and card/hero media. Operational status
+(`draft`, `active`, `suspended`, or `archived`) is separate from review state
+(`pending`, `approved`, or `rejected`). A public store must be both `active`
+and `approved`.
+
+`items/{itemId}` carries immutable `storeId`, normalized `searchName`, category
+label, integer-minor-unit price, status, availability, sort order, source/import
+metadata, image alt text, and media. Public item reads require an `active` item
+and an active/approved parent store; an active but temporarily unavailable item
+remains visible with its unavailable state.
+
+`importBatches/{batchId}` records the requested source, target store, actor,
+content hash, row counts, selection, result, status, timestamps, and optional
+`testRunId`. Normalized review rows live in
+`importBatches/{batchId}/rows/{rowId}`. Imports stage and preview before a
+selected, idempotent commit; no provider response publishes directly.
+
+Catalog media uses private staging paths below
+`catalog-staging/{uid}/{testRunId-or-session}/...` and active published paths
+below `catalog/{storeId}/...`. JPEG, PNG, and WebP are accepted within bounded
+sizes. Published records carry original/thumbnail metadata; cleanup names the
+exact object paths and never scans or deletes another actor's prefix.
+
+All marketplace document writes are trusted Function commands. Admin governs
+approval, ownership, protected location/scope, status, and retirement. A
+canonical pending merchant may create only their own draft onboarding record;
+an active merchant may update only explicitly permitted fields for an assigned
+store.
