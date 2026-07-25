@@ -522,6 +522,16 @@ separately and check every remaining Phase 3 exit item. The project owner
 performs any push manually. Production deployment remains blocked until Phase
 7 reaches 100% and its acceptance matrix is explicitly approved.
 
+## Doctor check on APK's
+
+```sh
+cd /home/mmekwa/Desktop/projects/spacemansystems/apps/customer-app
+env -u DEBUG corepack pnpm dlx expo-doctor
+
+cd ../driver-app
+env -u DEBUG corepack pnpm dlx expo-doctor
+```
+
 ## Evidence already recorded
 
 - 2026-07-21: owner-provided Phase 2 screenshots record customer and staff
@@ -554,9 +564,17 @@ performs any push manually. Production deployment remains blocked until Phase
   Documentation, type-check, lint, all tests/builds, four Playwright scenarios,
   both Expo compatibility checks, and fresh Customer/Driver Android exports
   also passed.
+- 2026-07-25: a Galaxy Note9 rerun proved that both self-contained preview APKs
+  now launch after the explicit Expo public-environment inlining fix. Customer
+  rendered the live catalog and a store menu; Driver rendered retained
+  delivery-zone scope and returned to sign-in after sign-out. The raw captures
+  expose test-account emails and remain local-only. Offline,
+  session-restoration, inactive-user, complete guest/authenticated, corrected
+  Playwright, and final redacted evidence gates remain.
 - Remaining Phase 3 action: the project owner must complete sections 10 through
-  12, including both preview-APK device checks, and record redacted
-  five-app/manual evidence before changing Phase 3 from 0% accepted.
+  12, including the missing preview-APK paths and corrected Playwright rerun,
+  and record redacted five-app/manual evidence before changing Phase 3 from 0%
+  accepted.
 
 ## Official references
 

@@ -14,6 +14,7 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
   const [search, setSearch] = useState("");
   const [storeId, setStoreId] = useState<string>();
   const [category, setCategory] = useState("");
+  const [refreshFailed, setRefreshFailed] = useState(false);
   const stores = useInfiniteActiveStores(service, {
     limit: 12,
     ...(search ? { search } : {}),
@@ -46,6 +47,7 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
     (store) => store.id === storeId,
   );
   const catalogFailed =
+    refreshFailed ||
     stores.isError ||
     stores.isRefetchError ||
     items.isError ||
@@ -58,6 +60,23 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
     : stores.isFetching || items.isFetching
       ? "Refreshing catalog…"
       : "Catalog cached and current";
+
+  async function refreshCatalog() {
+    setRefreshFailed(false);
+    if (!navigator.onLine) {
+      setRefreshFailed(true);
+      return;
+    }
+    try {
+      await Promise.all([
+        stores.refetch(),
+        ...(storeId ? [items.refetch()] : []),
+      ]);
+      if (!navigator.onLine) setRefreshFailed(true);
+    } catch {
+      setRefreshFailed(true);
+    }
+  }
 
   return (
     <section className="marketplace" aria-label="Active marketplace">
@@ -74,12 +93,7 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
             className="secondary"
             disabled={stores.isFetching || items.isFetching}
             type="button"
-            onClick={() =>
-              void Promise.all([
-                stores.refetch(),
-                ...(storeId ? [items.refetch()] : []),
-              ])
-            }
+            onClick={() => void refreshCatalog()}
           >
             Refresh catalog
           </button>
@@ -93,7 +107,7 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
           placeholder="Start typing a store name"
         />
       </label>
-      {stores.isError || stores.isRefetchError ? (
+      {refreshFailed || stores.isError || stores.isRefetchError ? (
         <p className="message error" role="alert">
           The catalog is temporarily unavailable. Cached results remain visible
           when available.

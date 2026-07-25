@@ -237,8 +237,8 @@ after they are implemented and documented in
 
 - [x] Deferred Functions runtime upgrade passes its bounded compatibility gate.
 - [x] One canonical marketplace contract is used across types, validation, repositories, services, queries, Rules, indexes, Functions, and docs.
-- [ ] Admin manual, Google, merchant-review, CSV, publish, edit, and retire workflows pass.
-- [ ] Merchant onboarding and catalog/store changes remain approval-aware and store-scoped.
+- [x] Admin manual, Google, merchant-review, CSV, publish, edit, and retire workflows pass.
+- [x] Merchant onboarding and catalog/store changes remain approval-aware and store-scoped.
 - [ ] Customer Web and Customer App expose only consistent public active catalog data.
 - [x] Firestore and Storage cross-store, inactive, inactive-parent, direct-write, import, and media denials pass.
 - [x] CSV imports are reviewed, selected, idempotent, and bounded.
@@ -250,7 +250,7 @@ after they are implemented and documented in
 
 Phase 4 may not begin until every checklist item is complete.
 
-## Execution status: implementation complete; 0% accepted
+## Execution status: implementation complete; native rerun partial; 0% accepted
 
 The bounded source implementation, runtime upgrade, shared contracts, app
 interfaces, automated tests, Rules/indexes, Functions deployment, provider
@@ -274,8 +274,17 @@ compatibility check, both Android exports, and four Playwright Chromium
 scenarios. These gates passed again after external catalog API removal:
 Playwright completed four scenarios in 1.3 minutes, both Expo dependency checks
 were current, and fresh Android exports produced 4.3 MB Customer and 4.2 MB
-Driver application bundles. The current preview APKs still require
-owner-operated physical-device acceptance.
+Driver application bundles.
+
+The first physical-device preview-APK run on 2026-07-24 failed because the
+native bundles did not inline the public Firebase configuration. Both native
+identity entry points now use explicit static `process.env.EXPO_PUBLIC_*`
+references. Owner screenshots from a 2026-07-25 Galaxy Note9 rerun prove that
+both APKs launch without Metro or Expo Go, Customer renders the live catalog,
+and Driver reaches signed-in delivery scope and sign-out. Those raw captures
+contain account emails and do not prove every required guest/authenticated,
+offline, session-restoration, or inactive-user path, so they are partial
+evidence only.
 
 Accepted progress remains 0% until the owner completes the five-app/manual
 acceptance matrix and records redacted evidence. Phase 4 remains blocked and

@@ -1,7 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { expect, test } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 
 const root = process.cwd();
 const evidenceDir = path.join(
@@ -21,12 +26,13 @@ const merchantPassword = process.env.PHASE3_MERCHANT_PASSWORD ?? "";
 const customerEmail = process.env.PHASE3_CUSTOMER_EMAIL ?? "";
 const customerPassword = process.env.PHASE3_CUSTOMER_PASSWORD ?? "";
 const merchantUid = process.env.PHASE3_MERCHANT_UID ?? "";
+const testRunId = process.env.PHASE3_TEST_RUN_ID ?? "";
 
-const adminStoreName = "Playwright Admin Store 20260723";
-const manualItemName = "Playwright Manual Item 20260723";
-const unavailableItemName = "Playwright Unavailable Item 20260723";
-const draftName = "Playwright Merchant Same Record Draft 20260723";
-const correctedName = "Playwright Merchant Same Record Corrected 20260723";
+const adminStoreName = `Playwright Admin Store ${testRunId}`;
+const manualItemName = `Playwright Manual Item ${testRunId}`;
+const unavailableItemName = `Playwright Unavailable Item ${testRunId}`;
+const draftName = `Playwright Merchant Same Record Draft ${testRunId}`;
+const correctedName = `Playwright Merchant Same Record Corrected ${testRunId}`;
 
 function requireFixtureEnvironment() {
   for (const [name, value] of Object.entries({
@@ -37,12 +43,13 @@ function requireFixtureEnvironment() {
     PHASE3_CUSTOMER_EMAIL: customerEmail,
     PHASE3_CUSTOMER_PASSWORD: customerPassword,
     PHASE3_MERCHANT_UID: merchantUid,
+    PHASE3_TEST_RUN_ID: testRunId,
   })) {
     if (!value) throw new Error(`Missing ${name} for live Phase 3 checks.`);
   }
 }
 
-async function signIn(page: import("@playwright/test").Page, email: string, password: string) {
+async function signIn(page: Page, email: string, password: string) {
   const form = page.locator("form").filter({ hasText: "Sign in" }).first();
   await form.getByLabel("Email").fill(email);
   await form.getByLabel("Password").fill(password);
@@ -50,14 +57,53 @@ async function signIn(page: import("@playwright/test").Page, email: string, pass
 }
 
 async function saveEvidence(
-  locator: import("@playwright/test").Locator,
+  locator: Locator,
   filename: string,
 ) {
   fs.mkdirSync(evidenceDir, { recursive: true });
   await locator.screenshot({ path: path.join(evidenceDir, filename) });
 }
 
+async function openStoreMenuWithItem(
+  market: Locator,
+  storeName: string,
+  itemName: string,
+) {
+  const cards = market.getByRole("article").filter({ hasText: storeName });
+  await expect(cards.first()).toBeVisible({ timeout: 60_000 });
+  const count = await cards.count();
+  expect(count).toBeGreaterThan(0);
+
+  for (let index = 0; index < count; index += 1) {
+    await cards.nth(index).getByRole("button", { name: "View menu" }).click();
+    const item = market.getByRole("heading", { name: itemName }).first();
+    try {
+      await expect(item).toBeVisible({ timeout: 10_000 });
+      return;
+    } catch {
+      // Retained development fixtures may share a display name; try the next store.
+    }
+  }
+
+  throw new Error(`No ${storeName} fixture contains ${itemName}.`);
+}
+
+async function loadAllStorePages(market: Locator) {
+  const storeCards = market.locator("article.store-card");
+  const loadMore = market.getByRole("button", { name: "Load more stores" });
+  while (await loadMore.count()) {
+    const previousCount = await storeCards.count();
+    await loadMore.click();
+    await expect
+      .poll(() => storeCards.count())
+      .toBeGreaterThan(previousCount);
+  }
+}
+
+test.describe.configure({ mode: "serial" });
+
 test("Phase 3 core marketplace web matrix", async ({ page, browser }) => {
+  test.setTimeout(900_000);
   requireFixtureEnvironment();
 
   const admin = page;
@@ -94,6 +140,11 @@ test("Phase 3 core marketplace web matrix", async ({ page, browser }) => {
       exact: true,
     }),
   ).toBeVisible();
+  const targetStoreSelect = adminMarket.getByLabel("Target store");
+  await expect(targetStoreSelect).toContainText(adminStoreName, { timeout: 60_000 });
+  await targetStoreSelect.selectOption({ label: adminStoreName });
+  const adminStoreId = await targetStoreSelect.inputValue();
+  expect(adminStoreId).not.toBe("");
 
   const itemForm = adminMarket
     .locator("form")
@@ -115,18 +166,24 @@ test("Phase 3 core marketplace web matrix", async ({ page, browser }) => {
   await itemForm.getByRole("button", { name: "Publish item" }).click();
   await expect(admin.getByText("Catalog item published.", { exact: true })).toBeVisible();
 
-  const otherStoreSelect = adminMarket.getByLabel("Target store");
-  await otherStoreSelect.selectOption({ label: "Playwright Other Kitchen" });
-  await itemForm.getByLabel("Item name").fill(unavailableItemName);
-  await itemForm.getByLabel("Description").fill("Minimal unavailable item fixture.");
-  await itemForm.getByLabel("Price (cents)").fill("1200");
-  await itemForm.getByLabel("Image alt text").fill("Unavailable item icon");
-  await itemForm.getByLabel("Item image").setInputFiles(iconPath);
-  await itemForm.getByRole("button", { name: "Publish item" }).click();
-  await expect(admin.getByText("Catalog item published.", { exact: true })).toBeVisible();
-
-  await adminMarket.getByLabel("Target store").selectOption({ label: adminStoreName });
   const csvForm = adminMarket.locator("form").filter({ hasText: "CSV catalog import" });
+  await targetStoreSelect.selectOption(adminStoreId);
+  await csvForm
+    .getByLabel("CSV preview")
+    .fill(
+      [
+        "name,description,price_minor,category,available,image_alt,external_id",
+        `${unavailableItemName},Minimal unavailable item fixture.,1200,Meals,false,Unavailable item icon,phase3-unavailable-${testRunId}`,
+      ].join("\n"),
+    );
+  await csvForm.getByRole("button", { name: "Stage CSV" }).click();
+  await expect(adminMarket.getByRole("heading", { name: "Import preview" })).toBeVisible();
+  await adminMarket.getByRole("button", { name: "Commit selected rows" }).click();
+  await expect(
+    admin.getByText("Selected import rows committed idempotently.", { exact: true }),
+  ).toBeVisible();
+
+  await targetStoreSelect.selectOption(adminStoreId);
   await csvForm.getByLabel("CSV preview").fill(fs.readFileSync(csvPath, "utf8"));
   await csvForm.getByRole("button", { name: "Stage CSV" }).click();
   await expect(adminMarket.getByRole("heading", { name: "Import preview" })).toBeVisible();
@@ -253,11 +310,24 @@ test("Phase 3 core marketplace web matrix", async ({ page, browser }) => {
   await correctedCard.getByRole("button", { name: "Approve" }).click();
   await expect(admin.getByText("Store approved; merchant scope refresh is required.", { exact: true })).toBeVisible();
 
+  await merchant.getByRole("button", { name: "Sign out" }).click();
+  await expect(
+    merchant.getByRole("heading", { name: "Merchant sign in" }),
+  ).toBeVisible();
+  await signIn(merchant, merchantEmail, merchantPassword);
+  await expect(merchant.getByRole("heading", { name: "Merchant operations foundation" })).toBeVisible();
   await merchant.reload({ waitUntil: "domcontentloaded" });
   await expect(merchant.getByRole("heading", { name: "Merchant operations foundation" })).toBeVisible();
-  const assignedCard = merchantMarket.getByRole("article").filter({ hasText: "Playwright Assigned Kitchen" });
+  const assignedCard = merchantMarket
+    .getByRole("article")
+    .filter({ hasText: correctedName })
+    .first();
+  await expect(
+    assignedCard.getByText("approved · active", { exact: true }),
+  ).toBeVisible();
   await assignedCard.getByRole("button", { name: "Select store" }).click();
   const updateForm = merchantMarket.locator("form").filter({ hasText: "Update assigned store" });
+  await expect(updateForm).toBeVisible();
   await updateForm.getByLabel("Description").fill("Updated only through assigned merchant scope.");
   await updateForm.getByRole("button", { name: "Save store settings" }).click();
   await expect(merchant.getByText("Store presentation and operating state updated.", { exact: true })).toBeVisible();
@@ -305,11 +375,9 @@ test("Phase 3 core marketplace web matrix", async ({ page, browser }) => {
   await customer.goto("http://127.0.0.1:4175", { waitUntil: "domcontentloaded" });
   const customerMarket = customer.getByRole("region", { name: "Active marketplace" });
   await expect(customerMarket.getByText("Catalog cached and current", { exact: true })).toBeVisible();
+  await loadAllStorePages(customerMarket);
   await customer.getByLabel("Search stores").fill(adminStoreName);
-  const publicAdminCard = customerMarket.getByRole("article").filter({ hasText: adminStoreName });
-  await expect(publicAdminCard).toBeVisible();
-  await publicAdminCard.getByRole("button", { name: "View menu" }).click();
-  await expect(customerMarket.getByRole("heading", { name: manualItemName })).toBeVisible();
+  await openStoreMenuWithItem(customerMarket, adminStoreName, manualItemName);
   await customer.getByRole("button", { name: "Continue to checkout" }).click();
   const customerSignIn = customer.locator("form").filter({ hasText: "Sign in" }).first();
   await customerSignIn.getByLabel("Email").fill(customerEmail);
@@ -319,39 +387,85 @@ test("Phase 3 core marketplace web matrix", async ({ page, browser }) => {
   await saveEvidence(customerMarket, "playwright-customer-authenticated-catalog.png");
 
   await admin.reload({ waitUntil: "domcontentloaded" });
-  await adminMarket.getByLabel("Target store").selectOption({ label: adminStoreName });
+  await adminMarket.getByLabel("Target store").selectOption(adminStoreId);
   const finalManaged = adminMarket.locator("section.subpanel").filter({ hasText: "Managed items" });
   const burgerCard = finalManaged.getByRole("article").filter({ hasText: "Playwright Burger" });
   await burgerCard.getByRole("button", { name: "Retire item" }).click();
   await expect(admin.getByText("Item retired.", { exact: true })).toBeVisible();
-  await expect(finalManaged.getByRole("heading", { name: "Playwright Burger" })).toHaveCount(0);
+  // Retirement archives the immutable Admin record; it must disappear from
+  // active Customer reads rather than being deleted from Admin history.
+  await expect(burgerCard).toBeVisible();
+  await expect(burgerCard.getByText(/Unavailable/)).toBeVisible();
+
+  await customer.reload({ waitUntil: "domcontentloaded" });
+  const retiredCustomerMarket = customer.getByRole("region", {
+    name: "Active marketplace",
+  });
+  await expect(
+    retiredCustomerMarket.getByText("Catalog cached and current", { exact: true }),
+  ).toBeVisible();
+  await loadAllStorePages(retiredCustomerMarket);
+  await retiredCustomerMarket.getByLabel("Search stores").fill(adminStoreName);
+  await openStoreMenuWithItem(retiredCustomerMarket, adminStoreName, manualItemName);
+  await expect(
+    retiredCustomerMarket.getByRole("heading", { name: "Playwright Burger" }),
+  ).toHaveCount(0);
   await saveEvidence(adminMarket, "playwright-admin-retirement-evidence.png");
 });
 
-test("Phase 3 customer final visibility, unavailable, pagination, and error feedback", async ({ page }) => {
+test("Phase 3 customer final visibility, unavailable, pagination, and error feedback", async ({ page, browser }) => {
   requireFixtureEnvironment();
   await page.goto("http://127.0.0.1:4175", { waitUntil: "domcontentloaded" });
   const market = page.getByRole("region", { name: "Active marketplace" });
   await expect(page.getByText("Catalog cached and current", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /next|previous|load more/i })).toHaveCount(0);
-  await page.getByLabel("Search stores").fill("Playwright Other Kitchen");
-  const otherCard = market.getByRole("article").filter({ hasText: "Playwright Other Kitchen" });
-  await expect(otherCard).toBeVisible();
-  await otherCard.getByRole("button", { name: "View menu" }).click();
-  await expect(market.getByRole("heading", { name: unavailableItemName })).toBeVisible();
-  await expect(market.getByText("Temporarily unavailable", { exact: true })).toBeVisible();
+  const storeCards = market.locator("article.store-card");
+  const initialStoreCount = await storeCards.count();
+  const loadMoreStores = market.getByRole("button", { name: "Load more stores" });
+  if (await loadMoreStores.count()) {
+    await loadMoreStores.click();
+    await expect
+      .poll(() => storeCards.count())
+      .toBeGreaterThan(initialStoreCount);
+  }
+  await loadAllStorePages(market);
+  await page.getByLabel("Search stores").fill(adminStoreName);
+  await openStoreMenuWithItem(
+    market,
+    adminStoreName,
+    unavailableItemName,
+  );
+  const unavailableCard = market
+    .getByRole("article")
+    .filter({ hasText: unavailableItemName })
+    .filter({ hasText: "Temporarily unavailable" })
+    .first();
+  await expect(unavailableCard).toBeVisible();
 
   await page.getByLabel("Search stores").fill(adminStoreName);
-  await expect(market.getByRole("heading", { name: adminStoreName })).toHaveCount(0);
-  await expect(page.getByText("No active approved stores match this search.", { exact: true })).toBeVisible();
-  await page.getByLabel("Search stores").fill("Playwright Hidden Kitchen");
-  await expect(page.getByRole("heading", { name: "Playwright Hidden Kitchen" })).toHaveCount(0);
+  await openStoreMenuWithItem(market, adminStoreName, manualItemName);
 
-  const errorPage = await page.context().newPage();
-  await errorPage.route("**firestore.googleapis.com/**", (route) => route.abort());
+  const errorContext = await browser.newContext();
+  const errorPage = await errorContext.newPage();
   await errorPage.goto("http://127.0.0.1:4175", { waitUntil: "domcontentloaded" });
+  await expect(
+    errorPage.getByText("Catalog cached and current", { exact: true }),
+  ).toBeVisible();
+  await errorPage.route("**/*", async (route) => {
+    const url = route.request().url();
+    if (
+      url.includes("firestore.googleapis.com") ||
+      url.includes("google.firestore.v1.Firestore")
+    ) {
+      await route.abort("failed");
+      return;
+    }
+    await route.continue();
+  });
+  await errorContext.setOffline(true);
+  await errorPage.getByRole("button", { name: "Refresh catalog" }).click();
   await expect(errorPage.getByRole("alert")).toContainText("catalog is temporarily unavailable", {
     timeout: 30_000,
   });
+  await errorContext.close();
   await saveEvidence(market, "playwright-customer-final-visibility.png");
 });

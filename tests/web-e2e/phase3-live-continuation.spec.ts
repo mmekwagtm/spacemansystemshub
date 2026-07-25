@@ -5,17 +5,19 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const root = process.cwd();
 const evidenceDir = path.join(root, "docs/live-test-data-docs/images/phase3-images");
-const adminStoreName = "Playwright Admin Store 20260723";
-const manualItemName = "Playwright Manual Item 20260723";
-const unavailableItemName = "Playwright Unavailable Item 20260723";
-const draftName = "Playwright Merchant Same Record Draft 20260723";
-const correctedName = "Playwright Merchant Same Record Corrected 20260723";
 const adminEmail = process.env.PHASE3_ADMIN_EMAIL ?? "";
 const adminPassword = process.env.PHASE3_ADMIN_PASSWORD ?? "";
 const merchantEmail = process.env.PHASE3_MERCHANT_EMAIL ?? "";
 const merchantPassword = process.env.PHASE3_MERCHANT_PASSWORD ?? "";
 const customerEmail = process.env.PHASE3_CUSTOMER_EMAIL ?? "";
 const customerPassword = process.env.PHASE3_CUSTOMER_PASSWORD ?? "";
+const merchantUid = process.env.PHASE3_MERCHANT_UID ?? "";
+const testRunId = process.env.PHASE3_TEST_RUN_ID ?? "";
+
+const adminStoreName = `Playwright Admin Store ${testRunId}`;
+const manualItemName = `Playwright Manual Item ${testRunId}`;
+const draftName = `Playwright Merchant Same Record Draft ${testRunId}`;
+const correctedName = `Playwright Merchant Same Record Corrected ${testRunId}`;
 
 function requireFixtureEnvironment() {
   for (const [name, value] of Object.entries({
@@ -25,6 +27,8 @@ function requireFixtureEnvironment() {
     PHASE3_MERCHANT_PASSWORD: merchantPassword,
     PHASE3_CUSTOMER_EMAIL: customerEmail,
     PHASE3_CUSTOMER_PASSWORD: customerPassword,
+    PHASE3_MERCHANT_UID: merchantUid,
+    PHASE3_TEST_RUN_ID: testRunId,
   })) {
     if (!value) throw new Error(`Missing ${name} for live Phase 3 checks.`);
   }
@@ -42,7 +46,63 @@ async function evidence(locator: Locator, filename: string) {
   await locator.screenshot({ path: path.join(evidenceDir, filename) });
 }
 
+async function idToken(
+  apiKey: string,
+  email: string,
+  password: string,
+): Promise<string> {
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, password, returnSecureToken: true }),
+    },
+  );
+  const body = (await response.json()) as { idToken?: string };
+  if (!body.idToken) throw new Error("A Firebase ID token could not be obtained.");
+  return body.idToken;
+}
+
+async function openStoreMenuWithItem(
+  market: Locator,
+  storeName: string,
+  itemName: string,
+) {
+  const cards = market.getByRole("article").filter({ hasText: storeName });
+  const count = await cards.count();
+  expect(count).toBeGreaterThan(0);
+
+  for (let index = 0; index < count; index += 1) {
+    await cards.nth(index).getByRole("button", { name: "View menu" }).click();
+    const item = market.getByRole("heading", { name: itemName }).first();
+    try {
+      await expect(item).toBeVisible({ timeout: 10_000 });
+      return;
+    } catch {
+      // Retained development fixtures may share a display name; try the next store.
+    }
+  }
+
+  throw new Error(`No ${storeName} fixture contains ${itemName}.`);
+}
+
+async function loadAllStorePages(market: Locator) {
+  const storeCards = market.locator("article.store-card");
+  const loadMore = market.getByRole("button", { name: "Load more stores" });
+  while (await loadMore.count()) {
+    const previousCount = await storeCards.count();
+    await loadMore.click();
+    await expect
+      .poll(() => storeCards.count())
+      .toBeGreaterThan(previousCount);
+  }
+}
+
+test.describe.configure({ mode: "serial" });
+
 test("Phase 3 continues from persisted Google, CSV, merchant, and customer state", async ({ page, browser }) => {
+  test.setTimeout(900_000);
   requireFixtureEnvironment();
 
   await page.goto("http://127.0.0.1:4173", { waitUntil: "domcontentloaded" });
@@ -58,10 +118,14 @@ test("Phase 3 continues from persisted Google, CSV, merchant, and customer state
   await signIn(merchant, merchantEmail, merchantPassword);
   const merchantMarket = merchant.getByRole("region", { name: "Merchant marketplace" });
   await expect(merchantMarket.getByRole("article").filter({ hasText: draftName })).toHaveCount(0);
-  await expect(merchantMarket.getByRole("article").filter({ hasText: correctedName }).getByText("approved · active", { exact: true }).first()).toBeVisible();
+  await merchant.reload({ waitUntil: "domcontentloaded" });
+  await signIn(merchant, merchantEmail, merchantPassword);
+  await expect(merchant.getByRole("heading", { name: "Merchant operations foundation" })).toBeVisible({ timeout: 90_000 });
+  const approvedCard = merchantMarket.getByRole("article").filter({ hasText: correctedName }).first();
+  await expect(approvedCard).toBeVisible({ timeout: 90_000 });
+  await expect(approvedCard.getByText("approved · active", { exact: true })).toBeVisible({ timeout: 90_000 });
   await expect(merchantMarket.getByText("Playwright Other Kitchen", { exact: true })).toHaveCount(0);
-  const assigned = merchantMarket.getByRole("article").filter({ hasText: correctedName }).first();
-  await assigned.getByRole("button", { name: "Select store" }).click();
+  await approvedCard.getByRole("button", { name: "Select store" }).click();
   const updateForm = merchantMarket.locator("form").filter({ hasText: "Update assigned store" });
   await updateForm.getByLabel("Description").fill("Continuation scope update only.");
   await updateForm.getByRole("button", { name: "Save store settings" }).click();
@@ -69,22 +133,13 @@ test("Phase 3 continues from persisted Google, CSV, merchant, and customer state
   const envText = fs.readFileSync(path.join(root, "apps/merchant-web/.env.local"), "utf8");
   const apiKey = envText.match(/^VITE_FIREBASE_API_KEY=(.+)$/m)?.[1]?.trim();
   if (!apiKey) throw new Error("Could not read the local Firebase API key for the scoped denial check.");
-  const tokenResponse = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: merchantEmail, password: merchantPassword, returnSecureToken: true }),
-    },
-  );
-  const tokenBody = (await tokenResponse.json()) as { idToken?: string };
-  if (!tokenBody.idToken) throw new Error("Merchant token could not be obtained for the denial check.");
+  const merchantToken = await idToken(apiKey, merchantEmail, merchantPassword);
   const deniedResponse = await fetch(
     "https://africa-south1-spacemansystemsbackend.cloudfunctions.net/updateMerchantStore",
     {
       method: "POST",
       headers: {
-        authorization: `Bearer ${tokenBody.idToken}`,
+        authorization: `Bearer ${merchantToken}`,
         "content-type": "application/json",
       },
       body: JSON.stringify({
@@ -107,11 +162,9 @@ test("Phase 3 continues from persisted Google, CSV, merchant, and customer state
   await customer.goto("http://127.0.0.1:4175", { waitUntil: "domcontentloaded" });
   const customerMarket = customer.getByRole("region", { name: "Active marketplace" });
   await expect(customerMarket.getByText("Catalog cached and current", { exact: true })).toBeVisible();
+  await loadAllStorePages(customerMarket);
   await customer.getByLabel("Search stores").fill(adminStoreName);
-  const publicAdminCard = customerMarket.getByRole("article").filter({ hasText: adminStoreName }).first();
-  await expect(publicAdminCard).toBeVisible();
-  await publicAdminCard.getByRole("button", { name: "View menu" }).click();
-  await expect(customerMarket.getByRole("heading", { name: manualItemName })).toBeVisible();
+  await openStoreMenuWithItem(customerMarket, adminStoreName, manualItemName);
   await customer.getByRole("button", { name: "Continue to checkout" }).click();
   const customerSignIn = customer.locator("form").filter({ hasText: "Sign in" }).first();
   await customerSignIn.getByLabel("Email").fill(customerEmail);
@@ -123,6 +176,10 @@ test("Phase 3 continues from persisted Google, CSV, merchant, and customer state
   const adminStores = adminMarket.getByRole("article").filter({ hasText: adminStoreName });
   const adminStoreCount = await adminStores.count();
   expect(adminStoreCount).toBeGreaterThan(0);
+  const targetStoreSelect = adminMarket.getByLabel("Target store");
+  await targetStoreSelect.selectOption({ label: adminStoreName });
+  const adminStoreId = await targetStoreSelect.inputValue();
+  expect(adminStoreId).not.toBe("");
   for (let index = 0; index < adminStoreCount; index += 1) {
     await adminStores.nth(index).getByRole("button", { name: "Manage catalog" }).click();
     const managed = adminMarket.locator("section.subpanel").filter({ hasText: "Managed items" });
@@ -135,9 +192,42 @@ test("Phase 3 continues from persisted Google, CSV, merchant, and customer state
     }
   }
   await evidence(adminMarket, "playwright-admin-csv-retirement-continuation.png");
+
+  const adminToken = await idToken(apiKey, adminEmail, adminPassword);
+  const suspensionResponse = await fetch(
+    "https://africa-south1-spacemansystemsbackend.cloudfunctions.net/upsertStore",
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        data: {
+          storeId: adminStoreId,
+          merchantId: merchantUid,
+          name: adminStoreName,
+          category: "Restaurant",
+          description: "Minimal Playwright store fixture.",
+          status: "suspended",
+          deliveryZoneIds: ["zone-development"],
+          address: {
+            label: adminStoreName,
+            formattedAddress: "Mabopane, South Africa",
+            coordinates: { latitude: -25.5407, longitude: 28.1007 },
+          },
+          openingHours: [],
+          openForOrders: false,
+          minimumOrder: { amountMinor: 0, currency: "ZAR" },
+        },
+      }),
+    },
+  );
+  const suspensionBody = await suspensionResponse.text();
+  expect(suspensionResponse.ok, suspensionBody).toBe(true);
 });
 
-test("Phase 3 final Customer Web visibility and resilience checks", async ({ page }) => {
+test("Phase 3 final Customer Web hidden-parent visibility checks", async ({ page }) => {
   requireFixtureEnvironment();
   await page.goto("http://127.0.0.1:4175", { waitUntil: "domcontentloaded" });
   const market = page.getByRole("region", { name: "Active marketplace" });
@@ -146,13 +236,7 @@ test("Phase 3 final Customer Web visibility and resilience checks", async ({ pag
     page.getByRole("button", { name: "Refresh catalog" }),
   ).toBeVisible();
 
-  await page.getByLabel("Search stores").fill("Playwright Other Kitchen");
-  const otherCard = market.getByRole("article").filter({ hasText: "Playwright Other Kitchen" });
-  await expect(otherCard).toBeVisible();
-  await otherCard.getByRole("button", { name: "View menu" }).click();
-  await expect(market.getByRole("heading", { name: unavailableItemName }).first()).toBeVisible();
-  await expect(market.getByText("Temporarily unavailable", { exact: true }).first()).toBeVisible();
-
+  await loadAllStorePages(market);
   await page.getByLabel("Search stores").fill(adminStoreName);
   await expect(market.getByRole("heading", { name: adminStoreName })).toHaveCount(0);
   await expect(page.getByText("No active approved stores match this search.", { exact: true })).toBeVisible();

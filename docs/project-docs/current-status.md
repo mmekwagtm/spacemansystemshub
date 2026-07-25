@@ -133,8 +133,7 @@ Phase 3 evidence on 2026-07-21 additionally records:
 Post-cleanup revalidation on 2026-07-23 passed documentation, type-check, lint,
 all unit/contract tests, all builds, Expo's online dependency check, both
 Android exports, and four Playwright Chromium scenarios. The regenerated
-Playwright screenshots are readable and contain no account data. Current
-preview APKs still require owner-operated physical-device acceptance.
+Playwright screenshots are readable and contain no account data.
 
 The same root gates were rerun after external catalog API removal. Documentation,
 workspace type-check, lint, all tests, all builds, four Playwright scenarios,
@@ -144,18 +143,33 @@ Android exports passed.
 The earlier roughly 745 KB Firebase entry-chunk warning is resolved by explicit
 vendor splitting and marketplace lazy loading.
 
+On 2026-07-25, owner screenshots from self-contained Customer and Driver EAS
+preview APKs on a Galaxy Note9 proved that the earlier missing-public-Firebase
+launch failure is resolved. Customer renders the live marketplace and a store
+menu; Driver renders retained delivery-zone scope and returns to sign-in after
+sign-out. The captures contain test-account emails and do not cover every
+offline, session-restoration, inactive-user, and guest/authenticated path, so
+native/manual acceptance remains partial.
+
+The latest enhanced live Playwright attempt exposed a new-store selection
+timing race plus a stale continuation fixture assertion. The source-only test
+corrections are present, but a live rerun is still required because the
+2026-07-25 project review intentionally made no development-backend changes.
+
 ## Remaining later-phase actions
 
 - Rotate the Paystack **test** secret before any Phase 4 payment work because
   the original value appeared in diagnostic output during setup.
-- Complete the Phase 3 owner five-app/manual acceptance and record redacted
-  evidence before starting Phase 4. No Phase 2 acceptance action remains.
+- Rerun the corrected Phase 3 Playwright matrix, complete the missing native
+  owner paths, and record redacted evidence before starting Phase 4. No Phase
+  2 acceptance action remains.
 
 ## Next phase gate
 
 Phase 2 is complete and overall accepted progress is 37.5%. Phase 3
 (Marketplace) implementation, deployment, Playwright, and self-cleaning live
-matrix are complete but it remains **0% accepted**. Customer/Driver
-self-contained preview-APK regression, five-app manual marketplace acceptance,
-and owner evidence must pass before Phase 3 or overall accepted progress
-changes.
+matrix are complete but it remains **0% accepted**. Both preview APKs now
+launch and partial Customer/Driver device evidence exists; the corrected
+Playwright rerun, missing native paths, five-app manual marketplace acceptance,
+and redacted owner evidence must pass before Phase 3 or overall accepted
+progress changes.

@@ -191,23 +191,49 @@ evidence:
 - No image proves cross-store denial, invalid-media rejection and exact orphan
   cleanup, customer hiding after retirement, or the Driver App regression.
 
+## Native preview-APK rerun recorded on 2026-07-25
+
+The first self-contained preview-APK run failed on 2026-07-24 because the
+Customer and Driver bundles did not inline the public Firebase configuration.
+The source now uses explicit static Expo public-environment references. A
+Galaxy Note9 rerun on 2026-07-25 proves both APKs launch without Metro or Expo
+Go. Driver visibly reached retained signed-in delivery-zone scope and then the
+sign-in screen after sign-out. Customer visibly rendered the cached/current
+marketplace, a long paginated catalog, an authenticated-account state, and a
+store menu containing the manual and CSV-backed items.
+
+That rerun is partial, not final acceptance. The raw owner screenshots expose
+test-account emails, show numerous retained Playwright fixtures, and do not
+prove Customer offline refresh, session restoration, inactive/wrong-role
+denial, a complete guest/sign-out cycle, Driver inactive-user denial, or a
+fully redacted five-app review. The raw captures are retained locally outside
+tracked evidence; the redacted observations are recorded in
+`docs/live-test-data-docs/terminal-data/phase3-native-device-acceptance-2026-07-25.md`.
+
+The latest enhanced Playwright live rerun also exposed a UI synchronization
+race when resolving a newly created store and an outdated continuation
+assertion tied to a prior unavailable-item fixture. The project test source now
+waits for and explicitly selects the created store, runs dependent tests
+serially, and removes the stale cross-run assertion. These source-only
+corrections require an owner-run live rerun because this project-only review
+did not mutate the development backend.
+
 ## Remaining owner acceptance
 
-1. Review the Playwright evidence above against the Admin/Merchant/Customer Web
-   matrix in `live-test-steps.md` section 10. The automated matrix is complete
-   except for deterministic Customer catalog error-state injection; owner
-   review must also approve the persisted named fixtures and screenshots.
+1. Rerun the corrected Playwright matrix and review its Admin/Merchant/Customer
+   Web evidence. The deterministic Customer error state must pass, and the
+   owner must approve the persisted named fixtures and screenshots.
 2. Retire any controlled “Phase 3 Development” / “Disposable live-test
    fixture” records that are not intended development catalog data. Verify the
    exact records disappear from both customer channels while unrelated
    catalog data remains.
-3. Build and install both self-contained EAS preview APKs as documented in
-   section 11. Stop Metro and do not use Expo Go. Customer App must pass
+3. Recapture the Customer preview APK without account data and complete
    guest/authenticated catalog parity, session restoration, sign-out,
-   inactive-data denial, pagination, and stale/offline behavior.
-4. On the Driver App preview APK, pass guest/sign-in boundaries, retained driver
-   role and delivery-zone scope, **Delivery operations**, session restoration,
-   sign-out, inactive-user denial, and absence of marketplace controls.
+   inactive-data denial, exercised pagination, and stale/offline behavior.
+4. Recapture the Driver preview APK without account data and complete
+   guest/sign-in boundaries, session restoration, inactive-user denial, and
+   absence of marketplace controls. Retained driver role/delivery-zone scope,
+   **Delivery operations**, and sign-out are already visibly supported.
 5. Recapture only the missing proof. Use the canonical URLs; crop/redact import
    batch IDs, Storage bucket/object paths, emails, UIDs, app identifiers,
    tokens, API keys, and passwords. For every scenario record date, app/role,
