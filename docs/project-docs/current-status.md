@@ -2,8 +2,8 @@
 
 ## Accepted baseline
 
-- Phase 0 (architecture truth), Phase 1 (monorepo baseline), and Phase 2
-  (identity and security) are complete.
+- Phase 0 (architecture truth), Phase 1 (monorepo baseline), Phase 2
+  (identity and security), and Phase 3 (marketplace) are complete.
 - The canonical workspace contains three Vite/React web apps, two Expo Router
   native apps, shared `@spaceman/*` packages, and a separate Firebase Functions
   runtime.
@@ -34,12 +34,11 @@ five-client identity acceptance are complete.
   locking out web localhost and Expo Go clients before providers and
   development builds are ready.
 
-## Phase 3 implementation state
+## Phase 3 accepted state
 
 Phase 3 (Marketplace) source implementation is complete against the bounded
-contract in `docs/plans-docs/PLAN-phase-3.md`; accepted progress remains 0%
-until the owner-operated five-app/manual matrix passes. The development live
-matrix already passes with exact cleanup.
+contract in `docs/plans-docs/PLAN-phase-3.md`. Its development-live,
+automated, five-app/manual, physical-device, and redacted evidence gates pass.
 
 - Shared types, validation, repositories, services, TanStack Query hooks,
   Firestore/Storage Rules, indexes, trusted Functions, and app-owned interfaces
@@ -50,7 +49,9 @@ matrix already passes with exact cleanup.
   catalog API import is prohibited and removed.
 - Customer Web and Customer App use the same guest-readable active catalog,
   categories, unavailable-item state, thumbnails, bounded pagination, and
-  stale/error feedback. Driver App remains a regression-only client.
+  stale/error feedback. Customer App additionally distinguishes offline cache
+  success from a reachable backend. Driver App remains a regression-only
+  client.
 - Imports are staged, normalized, previewed, selected, bounded, and
   idempotent; external responses never publish directly. Media uses scoped
   staging, compressed originals/thumbnails, metadata validation, publication,
@@ -61,8 +62,9 @@ matrix already passes with exact cleanup.
 ## Dependency and cleanup state
 
 - The root pnpm installation and lockfile are synchronized. SDK-compatible
-  AsyncStorage, gesture-handler, Reanimated, Worklets, and Metro packages were
-  added to the native manifests; `expo install --check` passes for both apps.
+  AsyncStorage, gesture-handler, Reanimated, Worklets, Metro, and Customer App
+  `expo-network` packages are declared in the native manifests; `expo install
+  --check` passes for both apps.
 - `firebase/functions` keeps only deployable npm registry dependencies at
   runtime; shared workspace source is bundled at build time because Cloud
   Build cannot install `workspace:*` dependencies with npm.
@@ -143,33 +145,32 @@ Android exports passed.
 The earlier roughly 745 KB Firebase entry-chunk warning is resolved by explicit
 vendor splitting and marketplace lazy loading.
 
-On 2026-07-25, owner screenshots from self-contained Customer and Driver EAS
-preview APKs on a Galaxy Note9 proved that the earlier missing-public-Firebase
-launch failure is resolved. Customer renders the live marketplace and a store
-menu; Driver renders retained delivery-zone scope and returns to sign-in after
-sign-out. The captures contain test-account emails and do not cover every
-offline, session-restoration, inactive-user, and guest/authenticated path, so
-native/manual acceptance remains partial.
+Final Phase 3 acceptance on 2026-07-26 passed the corrected web and native
+gates:
 
-The latest enhanced live Playwright attempt exposed a new-store selection
-timing race plus a stale continuation fixture assertion. The source-only test
-corrections are present, but a live rerun is still required because the
-2026-07-25 project review intentionally made no development-backend changes.
+- Playwright run `phase3_accept_20260726_1450` passed the core matrix `2/2`,
+  persisted-state continuation `2/2`, and web foundations `4/4`.
+- Admin and Merchant now expose bounded store search, and a newly created
+  Admin store remains immediately selectable even when it falls outside the
+  first paginated list.
+- Customer Web and Customer App exposed matching public approved/active
+  catalog records, prices, availability, pagination, and hidden
+  retired/inactive records.
+- Both self-contained preview APKs passed Galaxy Note9 launch and manual
+  regression without Metro or Expo Go. Customer internal preview build
+  `6e06e1a9-985b-439f-abeb-d2489c0ac25e` also passed explicit cached-offline,
+  refresh, restored-connectivity, and empty-crash-buffer checks.
+- Redacted evidence is stored under `docs/live-test-data-docs/`; the exact
+  temporary Driver denial fixture was removed with zero verified residue.
 
 ## Remaining later-phase actions
 
 - Rotate the Paystack **test** secret before any Phase 4 payment work because
   the original value appeared in diagnostic output during setup.
-- Rerun the corrected Phase 3 Playwright matrix, complete the missing native
-  owner paths, and record redacted evidence before starting Phase 4. No Phase
-  2 acceptance action remains.
+- No Phase 2 or Phase 3 acceptance action remains.
 
 ## Next phase gate
 
-Phase 2 is complete and overall accepted progress is 37.5%. Phase 3
-(Marketplace) implementation, deployment, Playwright, and self-cleaning live
-matrix are complete but it remains **0% accepted**. Both preview APKs now
-launch and partial Customer/Driver device evidence exists; the corrected
-Playwright rerun, missing native paths, five-app manual marketplace acceptance,
-and redacted owner evidence must pass before Phase 3 or overall accepted
-progress changes.
+Phase 3 is **100% accepted** and overall accepted progress is **50%**. Phase 4
+(Maps, checkout, and payment) is unblocked but not started. Rotate the exposed
+Paystack test secret before implementing or exercising Phase 4 payment work.

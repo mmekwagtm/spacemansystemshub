@@ -21,6 +21,8 @@ describe("customer app foundation", () => {
     );
     expect(source).toContain("Load more stores");
     expect(source).toContain("Load more menu items");
+    expect(source).toContain("Network.useNetworkState()");
+    expect(source).toContain("Cached catalog — offline");
     expect(source).toContain("Cached catalog — refresh failed");
     expect(source).toContain("Refresh catalog");
     expect(source).toContain("Temporarily unavailable");

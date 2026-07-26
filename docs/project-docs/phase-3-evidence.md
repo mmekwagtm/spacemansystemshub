@@ -2,10 +2,10 @@
 
 ## Acceptance state
 
-Phase 3 implementation, automated validation, development deployment, and the
-self-cleaning live matrix are complete, but Phase 3 remains **0% accepted** and
-overall accepted progress remains **37.5%**. A reviewed implementation commit
-does not replace the owner-operated five-app/manual matrix.
+Phase 3 implementation, automated validation, development deployment,
+self-cleaning live matrix, five-app/manual matrix, physical-device checks, and
+redacted evidence are complete. Phase 3 is **100% accepted** and overall
+accepted progress is **50%**.
 
 The owner explicitly approved the Firebase callable transport
 `roles/run.invoker` binding to `allUsers` on exactly the 13 Phase 3 Cloud Run
@@ -169,8 +169,8 @@ Twenty-three replacement screenshot candidates under
   prices, availability presentation, and catalog media. The category-filter
   image shows visible filtering behavior.
 
-This is useful visible-state coverage, but it is not yet final acceptance
-evidence:
+This historical candidate set was useful visible-state coverage, but the
+following files/states were not eligible as final acceptance evidence:
 
 - Any Admin image that still shows the removed **Allowlisted API import** form
   is stale and must be recaptured after this change.
@@ -185,11 +185,14 @@ evidence:
 - Visible “Phase 3 Development” / “Disposable live-test fixture” catalog
   records need an exact owner review. Retire controlled test records through
   normal Admin commands; never perform broad collection deletion.
-- The Customer App images appear to show a guest catalog and do not prove
+- The earlier Customer App images showed a guest catalog and did not prove
   authenticated parity, session restoration, sign-out, inactive/wrong-role
   denial, stale/offline behavior, pagination, or a self-contained APK launch.
-- No image proves cross-store denial, invalid-media rejection and exact orphan
+- No earlier image proved cross-store denial, invalid-media rejection and exact orphan
   cleanup, customer hiding after retirement, or the Driver App regression.
+
+The final 2026-07-26 Playwright and Note9 captures replace those gaps; stale or
+sensitive candidates remain excluded from final evidence.
 
 ## Native preview-APK rerun recorded on 2026-07-25
 
@@ -210,41 +213,41 @@ fully redacted five-app review. The raw captures are retained locally outside
 tracked evidence; the redacted observations are recorded in
 `docs/live-test-data-docs/terminal-data/phase3-native-device-acceptance-2026-07-25.md`.
 
-The latest enhanced Playwright live rerun also exposed a UI synchronization
-race when resolving a newly created store and an outdated continuation
-assertion tied to a prior unavailable-item fixture. The project test source now
-waits for and explicitly selects the created store, runs dependent tests
-serially, and removes the stale cross-run assertion. These source-only
-corrections require an owner-run live rerun because this project-only review
-did not mutate the development backend.
+The enhanced Playwright run first exposed a UI synchronization race when
+resolving a newly created store and an outdated continuation assertion tied to
+a prior unavailable-item fixture. Admin and Merchant now provide bounded store
+search, a just-created Admin store remains selectable outside the first page,
+and the acceptance source waits for visible records before counting them.
 
-## Remaining owner acceptance
+## Final acceptance on 2026-07-26
 
-1. Rerun the corrected Playwright matrix and review its Admin/Merchant/Customer
-   Web evidence. The deterministic Customer error state must pass, and the
-   owner must approve the persisted named fixtures and screenshots.
-2. Retire any controlled “Phase 3 Development” / “Disposable live-test
-   fixture” records that are not intended development catalog data. Verify the
-   exact records disappear from both customer channels while unrelated
-   catalog data remains.
-3. Recapture the Customer preview APK without account data and complete
-   guest/authenticated catalog parity, session restoration, sign-out,
-   inactive-data denial, exercised pagination, and stale/offline behavior.
-4. Recapture the Driver preview APK without account data and complete
-   guest/sign-in boundaries, session restoration, inactive-user denial, and
-   absence of marketplace controls. Retained driver role/delivery-zone scope,
-   **Delivery operations**, and sign-out are already visibly supported.
-5. Recapture only the missing proof. Use the canonical URLs; crop/redact import
-   batch IDs, Storage bucket/object paths, emails, UIDs, app identifiers,
-   tokens, API keys, and passwords. For every scenario record date, app/role,
-   expected result, actual result, and pass/fail.
-6. Run the final root checks in `PLAN-phase-3.md`, Playwright, both Expo
-   compatibility checks, both Android exports, and the live marketplace
-   matrix. Require a new passing `testRunId` only if source/backend behavior
-   changes again; evidence-only edits do not require another live data run.
-7. Review the evidence against every unchecked exit item. Only after there are
-   no unresolved failures or sensitive/stale captures may Phase 3 move from
-   0% to 100% and overall accepted progress from 37.5% to 50%.
+- Run `phase3_accept_20260726_1450` passed the core marketplace matrix `2/2`,
+  persisted-state continuation `2/2`, and web foundations `4/4`.
+- Admin manual/media, Google, merchant review, CSV selected-row commit/replay,
+  invalid-media, retirement, and suspension checks passed. Merchant
+  submit/reject/correct/resubmit/approve, assigned-store edit, and cross-store
+  denial checks passed.
+- Customer Web passed guest/authenticated active-catalog parity, unavailable
+  state, pagination, deterministic cached-refresh feedback, retired/suspended
+  hiding, and unrelated-catalog retention.
+- Customer App and Customer Web showed matching public approved/active
+  stores/items and hid inactive/retired data. Customer App also passed
+  pagination, session restoration, sign-out, and cached offline behavior.
+- Customer internal preview build
+  `6e06e1a9-985b-439f-abeb-d2489c0ac25e` was installed on a Galaxy Note9 and
+  passed clean online launch, automatic `Cached catalog — offline` feedback,
+  cached-data retention after refresh, connectivity restoration, and empty
+  Android crash-buffer checks.
+- Driver App passed guest/sign-in boundaries, active role/scope and session
+  restoration, sign-out, suspended-user denial, and absence of marketplace
+  controls.
+- The exact temporary Driver denial fixture was removed with zero Auth,
+  profile, and audit residue. Playwright records requested for continued
+  development review remain stored; no broad cleanup was run.
+- Final native and web screenshots were visually checked and contain no email,
+  password, UID, token, API key, Firebase configuration value, or device
+  serial. The detailed redacted record is
+  `docs/live-test-data-docs/terminal-data/phase3-native-device-acceptance-2026-07-26.md`.
 
-No Phase 4 work, production deployment, or push is included. A local source
-checkpoint commit does not represent Phase 3 acceptance.
+Every Phase 3 exit item passes. Phase 4 is unblocked but not started. No
+production deployment or push is included.

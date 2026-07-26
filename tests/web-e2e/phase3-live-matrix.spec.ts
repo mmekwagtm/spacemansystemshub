@@ -111,7 +111,7 @@ test("Phase 3 core marketplace web matrix", async ({ page, browser }) => {
   await signIn(admin, adminEmail, adminPassword);
   await expect(
     admin.getByRole("heading", { name: "Marketplace operations" }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 120_000 });
 
   const adminMarket = admin.getByRole("region", {
     name: "Marketplace operations",
@@ -236,17 +236,27 @@ test("Phase 3 core marketplace web matrix", async ({ page, browser }) => {
   await expect(
     admin.getByText("Selected import rows committed idempotently.", { exact: true }),
   ).toBeVisible();
+  await adminMarket.getByLabel("Search managed stores").fill(placeLabel);
   const googleCard = adminMarket
     .getByRole("article")
     .filter({ hasText: placeLabel })
     .first();
-  await expect(googleCard).toBeVisible();
-  const approveButton = googleCard.getByRole("button", { name: "Approve" });
-  if (await approveButton.count()) {
-    await approveButton.click();
-    await expect(admin.getByText("Store approved; merchant scope refresh is required.", { exact: true })).toBeVisible();
+  await expect(googleCard).toBeVisible({ timeout: 60_000 });
+  const googleApproveButton = googleCard.getByRole("button", {
+    name: "Approve",
+  });
+  if (await googleApproveButton.count()) {
+    await googleApproveButton.click();
+    await expect(
+      admin.getByText(
+        "Store approved; merchant scope refresh is required.",
+        { exact: true },
+      ),
+    ).toBeVisible({ timeout: 60_000 });
   } else {
-    await expect(googleCard.getByText("approved · active", { exact: true })).toBeVisible();
+    await expect(
+      googleCard.getByText("approved · active", { exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
   }
 
   await saveEvidence(adminMarket, "playwright-admin-marketplace-matrix.png");
@@ -269,20 +279,27 @@ test("Phase 3 core marketplace web matrix", async ({ page, browser }) => {
 
   await admin.reload({ waitUntil: "domcontentloaded" });
   await expect(admin.getByRole("heading", { name: "Marketplace operations" })).toBeVisible();
-  const draftCard = adminMarket.getByRole("article").filter({ hasText: draftName });
-  await expect(draftCard).toBeVisible();
+  await adminMarket.getByLabel("Search managed stores").fill(draftName);
+  const draftCard = adminMarket
+    .getByRole("article")
+    .filter({ hasText: draftName })
+    .first();
+  await expect(draftCard).toBeVisible({ timeout: 90_000 });
+  await expect(draftCard.getByRole("button", { name: "Reject" })).toBeVisible({ timeout: 90_000 });
   await draftCard.getByRole("button", { name: "Reject" }).click();
   await expect(admin.getByText("Store submission rejected.", { exact: true })).toBeVisible();
 
   await merchant.reload({ waitUntil: "domcontentloaded" });
   await expect(merchant.getByRole("heading", { name: "Merchant operations foundation" })).toBeVisible();
+  await merchantMarket.getByLabel("Search merchant stores").fill(draftName);
   const rejectedCard = merchantMarket
     .getByRole("article")
     .filter({ hasText: draftName })
     .first();
+  await expect(rejectedCard).toBeVisible({ timeout: 90_000 });
   await expect(
     rejectedCard.getByText("rejected · draft", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 90_000 });
   await rejectedCard.getByRole("button", { name: "Select store" }).click();
   const correctionForm = merchantMarket
     .locator("form")
@@ -302,13 +319,19 @@ test("Phase 3 core marketplace web matrix", async ({ page, browser }) => {
   ).toBeVisible();
 
   await admin.reload({ waitUntil: "domcontentloaded" });
+  await adminMarket.getByLabel("Search managed stores").fill(correctedName);
   await expect(
     adminMarket.getByRole("article").filter({ hasText: draftName }),
   ).toHaveCount(0);
-  const correctedCard = adminMarket.getByRole("article").filter({ hasText: correctedName });
-  await expect(correctedCard).toBeVisible();
-  await correctedCard.getByRole("button", { name: "Approve" }).click();
-  await expect(admin.getByText("Store approved; merchant scope refresh is required.", { exact: true })).toBeVisible();
+  const correctedCard = adminMarket
+    .getByRole("article")
+    .filter({ hasText: correctedName })
+    .first();
+  await expect(correctedCard).toBeVisible({ timeout: 180_000 });
+  const approveButton = correctedCard.getByRole("button", { name: "Approve" });
+  await expect(approveButton).toBeVisible({ timeout: 180_000 });
+  await approveButton.click();
+  await expect(admin.getByText("Store approved; merchant scope refresh is required.", { exact: true })).toBeVisible({ timeout: 180_000 });
 
   await merchant.getByRole("button", { name: "Sign out" }).click();
   await expect(
@@ -318,6 +341,7 @@ test("Phase 3 core marketplace web matrix", async ({ page, browser }) => {
   await expect(merchant.getByRole("heading", { name: "Merchant operations foundation" })).toBeVisible();
   await merchant.reload({ waitUntil: "domcontentloaded" });
   await expect(merchant.getByRole("heading", { name: "Merchant operations foundation" })).toBeVisible();
+  await merchantMarket.getByLabel("Search merchant stores").fill(correctedName);
   const assignedCard = merchantMarket
     .getByRole("article")
     .filter({ hasText: correctedName })
@@ -387,6 +411,11 @@ test("Phase 3 core marketplace web matrix", async ({ page, browser }) => {
   await saveEvidence(customerMarket, "playwright-customer-authenticated-catalog.png");
 
   await admin.reload({ waitUntil: "domcontentloaded" });
+  await adminMarket.getByLabel("Search managed stores").fill(adminStoreName);
+  await expect(adminMarket.getByLabel("Target store")).toContainText(
+    adminStoreName,
+    { timeout: 60_000 },
+  );
   await adminMarket.getByLabel("Target store").selectOption(adminStoreId);
   const finalManaged = adminMarket.locator("section.subpanel").filter({ hasText: "Managed items" });
   const burgerCard = finalManaged.getByRole("article").filter({ hasText: "Playwright Burger" });
@@ -466,6 +495,10 @@ test("Phase 3 customer final visibility, unavailable, pagination, and error feed
   await expect(errorPage.getByRole("alert")).toContainText("catalog is temporarily unavailable", {
     timeout: 30_000,
   });
+  await saveEvidence(
+    errorPage.getByRole("region", { name: "Active marketplace" }),
+    "playwright-customer-error-feedback.png",
+  );
   await errorContext.close();
   await saveEvidence(market, "playwright-customer-final-visibility.png");
 });

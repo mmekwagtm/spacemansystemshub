@@ -54,16 +54,23 @@ export function MarketplacePanel({
   service,
   submissionOnly = false,
 }: MarketplacePanelProps) {
+  const [storeSearch, setStoreSearch] = useState("");
   const assignedStores = useMerchantStores(
     service,
     merchantId,
-    { limit: 50 },
+    {
+      limit: 50,
+      ...(storeSearch ? { search: storeSearch } : {}),
+    },
     !submissionOnly,
   );
   const pendingStores = usePendingMerchantStores(
     service,
     merchantId,
-    { limit: 50 },
+    {
+      limit: 50,
+      ...(storeSearch ? { search: storeSearch } : {}),
+    },
     submissionOnly,
   );
   const stores = submissionOnly ? pendingStores : assignedStores;
@@ -268,6 +275,14 @@ export function MarketplacePanel({
           {notice}
         </p>
       ) : null}
+      <label className="search-field">
+        Search merchant stores
+        <input
+          onChange={(event) => setStoreSearch(event.target.value)}
+          placeholder="Start typing a store name"
+          value={storeSearch}
+        />
+      </label>
       <div className="forms">
         <form onSubmit={(event) => void submitStore(event)}>
           <h3>Submit draft store</h3>

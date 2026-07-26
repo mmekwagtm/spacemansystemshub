@@ -5,13 +5,14 @@ import {
 import type { MarketplaceService } from "@spaceman/app-services";
 import type { Store } from "@spaceman/app-types";
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MarketplacePanel } from "./MarketplacePanel";
 
@@ -46,6 +47,11 @@ const rejectedStore: Store = {
   updatedAt: "2026-07-23T00:00:00.000Z",
   updatedBy: "admin-1",
 };
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
 
 describe("Merchant marketplace", () => {
   it("keeps pending onboarding limited to a draft submission", async () => {
@@ -121,5 +127,39 @@ describe("Merchant marketplace", () => {
         "Corrected store resubmitted for administrator review.",
       ),
     ).toBeVisible();
+  });
+
+  it("searches the bounded merchant store list", async () => {
+    const listMerchantStores = vi.fn(async () => ({ records: [] }));
+    const scopedService = {
+      listMerchantStores,
+      listPendingMerchantStores: vi.fn(async () => ({ records: [] })),
+      listManagedItems: vi.fn(async () => ({ records: [] })),
+    } as unknown as MarketplaceService;
+
+    render(
+      <QueryClientProvider client={createSpacemanQueryClient()}>
+        <MarketplacePanel
+          merchantId="merchant-1"
+          ownerId="merchant-1"
+          service={scopedService}
+        />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("heading", { name: "Assigned marketplace" });
+
+    fireEvent.change(screen.getByLabelText("Search merchant stores"), {
+      target: { value: "Corrected Kitchen" },
+    });
+
+    await waitFor(() =>
+      expect(listMerchantStores).toHaveBeenCalledWith(
+        "merchant-1",
+        expect.objectContaining({
+          limit: 50,
+          search: "Corrected Kitchen",
+        }),
+      ),
+    );
   });
 });

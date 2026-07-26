@@ -7,6 +7,7 @@ import {
 import type { IdentitySession } from "@spaceman/app-types";
 import { spacemanTokens } from "@spaceman/app-ui";
 import { evaluateIdentityAccess } from "@spaceman/shared/auth";
+import * as Network from "expo-network";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -46,6 +47,7 @@ export default function CustomerHomeScreen() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [storeId, setStoreId] = useState<string>();
+  const networkState = Network.useNetworkState();
   const stores = useInfiniteActiveStores(customerMarketplaceService, {
     limit: 12,
   });
@@ -101,13 +103,21 @@ export default function CustomerHomeScreen() {
   }
 
   const access = evaluateIdentityAccess(session, ["customer"]);
-  const catalogFailed =
+  const catalogOffline =
+    networkState.isConnected === false ||
+    networkState.isInternetReachable === false;
+  const catalogRefreshFailed =
     stores.isError ||
     stores.isRefetchError ||
     items.isError ||
     items.isRefetchError;
+  const catalogFailed = catalogOffline || catalogRefreshFailed;
   const catalogHasData = storeRecords.length > 0 || itemRecords.length > 0;
-  const catalogState = catalogFailed
+  const catalogState = catalogOffline
+    ? catalogHasData
+      ? "Cached catalog — offline"
+      : "Catalog unavailable offline"
+    : catalogRefreshFailed
     ? catalogHasData
       ? "Cached catalog — refresh failed"
       : "Catalog unavailable"
@@ -167,8 +177,9 @@ export default function CustomerHomeScreen() {
             accessibilityRole="alert"
             style={[styles.message, styles.error]}
           >
-            The marketplace refresh failed. Cached results remain visible when
-            available.
+            {catalogOffline
+              ? "The marketplace is offline. Cached results remain visible when available."
+              : "The marketplace refresh failed. Cached results remain visible when available."}
           </Text>
         ) : null}
         {storeRecords.map((store) => (

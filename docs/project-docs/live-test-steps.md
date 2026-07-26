@@ -9,13 +9,12 @@ Never print or commit `.env.local`, `google-services.json`, provider secrets,
 service accounts, access tokens, Firebase config contents, or generated test
 accounts. Testing, review, commits, and pushes are manual.
 
-Phase 2 is complete. Phase 3 source, deployment, Playwright, and self-cleaning
-development-live work have passed their recorded gates. The external
-JSON/HTTPS catalog API workflow was subsequently removed; CSV selected-row
-commit and Google Places store staging remain. Phase 3 remains 0% accepted
-until the narrowed live matrix and the owner-operated five-app/manual matrix
-below pass. Do not mark Phase 3 complete from source, deployment, or automated
-evidence alone.
+Phases 2 and 3 are complete. Phase 3 source, deployment, Playwright,
+self-cleaning development-live work, owner-operated five-app/manual matrix,
+physical-device checks, and redacted evidence passed. The external JSON/HTTPS
+catalog API workflow was removed; CSV selected-row commit and Google Places
+store staging remain. Keep this runbook for regression after future
+marketplace changes; do not infer a future pass from the 2026-07-26 evidence.
 
 ## 0. Required security action before payment work
 
@@ -494,10 +493,9 @@ diff.
 
 ## 13. Commit a reviewed implementation checkpoint
 
-After the source, Playwright, and live Firebase gates pass and the exact diff is
-reviewed, an implementation checkpoint may be committed while owner-operated
-manual acceptance remains pending. That commit does not change Phase 3 accepted
-progress. Stage tracked modifications interactively from
+After the source, Playwright, live Firebase, and owner-operated gates pass and
+the exact diff is reviewed, the bounded source and redacted evidence may be
+committed. Stage tracked modifications interactively from
 `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
@@ -517,10 +515,9 @@ Commit the reviewed checkpoint from
 git commit -m "record reviewed Phase 3 marketplace checkpoint"
 ```
 
-After sections 10 through 12 pass, commit the redacted acceptance evidence
-separately and check every remaining Phase 3 exit item. The project owner
-performs any push manually. Production deployment remains blocked until Phase
-7 reaches 100% and its acceptance matrix is explicitly approved.
+After sections 10 through 12 pass, check every Phase 3 exit item. The project
+owner performs any push manually. Production deployment remains blocked until
+Phase 7 reaches 100% and its acceptance matrix is explicitly approved.
 
 ## Doctor check on APK's
 
@@ -568,13 +565,21 @@ env -u DEBUG corepack pnpm dlx expo-doctor
   now launch after the explicit Expo public-environment inlining fix. Customer
   rendered the live catalog and a store menu; Driver rendered retained
   delivery-zone scope and returned to sign-in after sign-out. The raw captures
-  expose test-account emails and remain local-only. Offline,
+  expose test-account emails and remain local-only. At that checkpoint,
+  offline,
   session-restoration, inactive-user, complete guest/authenticated, corrected
-  Playwright, and final redacted evidence gates remain.
-- Remaining Phase 3 action: the project owner must complete sections 10 through
-  12, including the missing preview-APK paths and corrected Playwright rerun,
-  and record redacted five-app/manual evidence before changing Phase 3 from 0%
-  accepted.
+  Playwright, and final redacted evidence gates remained.
+- 2026-07-26: run `phase3_accept_20260726_1450` passed the corrected core
+  matrix `2/2`, persisted-state continuation `2/2`, and web foundations `4/4`.
+  Redacted Galaxy Note9 evidence passed Customer guest/authenticated parity,
+  pagination, session/sign-out, explicit cached-offline fallback, and clean
+  standalone launch, plus Driver guest/active/suspended/session boundaries and
+  absence of marketplace controls. Customer preview build
+  `6e06e1a9-985b-439f-abeb-d2489c0ac25e` contains the SDK-compatible
+  `expo-network` correction. Wi-Fi was restored, the crash buffer was empty,
+  and the exact temporary Driver denial fixture left zero residue.
+- Phase 3 is 100% accepted. No Phase 2 or Phase 3 acceptance action remains;
+  rerun the relevant sections only after a behavior or backend change.
 
 ## Official references
 

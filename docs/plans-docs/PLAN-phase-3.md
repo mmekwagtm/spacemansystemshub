@@ -239,18 +239,18 @@ after they are implemented and documented in
 - [x] One canonical marketplace contract is used across types, validation, repositories, services, queries, Rules, indexes, Functions, and docs.
 - [x] Admin manual, Google, merchant-review, CSV, publish, edit, and retire workflows pass.
 - [x] Merchant onboarding and catalog/store changes remain approval-aware and store-scoped.
-- [ ] Customer Web and Customer App expose only consistent public active catalog data.
+- [x] Customer Web and Customer App expose only consistent public active catalog data.
 - [x] Firestore and Storage cross-store, inactive, inactive-parent, direct-write, import, and media denials pass.
 - [x] CSV imports are reviewed, selected, idempotent, and bounded.
 - [x] Catalog media is compressed, thumbnail-backed, scoped, and exactly cleaned.
 - [x] Pagination, caching, invalidation, lazy loading, and bundle warnings meet the Phase 3 performance gate.
 - [x] Root validation, Playwright, native compatibility/export checks, live Firebase, and source documentation evidence pass.
-- [ ] Preview-APK physical-device checks, five-app smoke, manual acceptance, and redacted owner evidence pass.
+- [x] Preview-APK physical-device checks, five-app smoke, manual acceptance, and redacted owner evidence pass.
 - [x] Exact `testRunId` cleanup verifies zero Firestore, Auth, import, audit, and Storage residue.
 
 Phase 4 may not begin until every checklist item is complete.
 
-## Execution status: implementation complete; native rerun partial; 0% accepted
+## Execution status: complete; 100% accepted
 
 The bounded source implementation, runtime upgrade, shared contracts, app
 interfaces, automated tests, Rules/indexes, Functions deployment, provider
@@ -279,13 +279,24 @@ Driver application bundles.
 The first physical-device preview-APK run on 2026-07-24 failed because the
 native bundles did not inline the public Firebase configuration. Both native
 identity entry points now use explicit static `process.env.EXPO_PUBLIC_*`
-references. Owner screenshots from a 2026-07-25 Galaxy Note9 rerun prove that
-both APKs launch without Metro or Expo Go, Customer renders the live catalog,
-and Driver reaches signed-in delivery scope and sign-out. Those raw captures
-contain account emails and do not prove every required guest/authenticated,
-offline, session-restoration, or inactive-user path, so they are partial
-evidence only.
+references. A partial 2026-07-25 Galaxy Note9 rerun proved both APKs could
+launch without Metro or Expo Go.
 
-Accepted progress remains 0% until the owner completes the five-app/manual
-acceptance matrix and records redacted evidence. Phase 4 remains blocked and
-overall accepted project progress remains 37.5%.
+Final acceptance on 2026-07-26 completed the missing gates. Playwright run
+`phase3_accept_20260726_1450` passed the Phase 3 matrix, persisted-state
+continuation, and three-web-app foundations as `8/8` bounded scenarios.
+Customer Web and Customer App showed the same approved active store/item data,
+unavailable state, pagination, and hidden retired/inactive records. Admin,
+Merchant, Customer Web, Customer App, and Driver smoke/manual paths passed.
+
+Customer App now uses the SDK-compatible `expo-network` module so an installed
+preview APK can distinguish Firestore cache success from real connectivity.
+Internal preview build `6e06e1a9-985b-439f-abeb-d2489c0ac25e` was installed
+on the Note9 and passed online launch, cached offline indication and alert,
+offline refresh, restored connectivity, and crash-log checks. Driver guest,
+active-scope/session, sign-out, suspended-user denial, and absence of
+marketplace controls also passed. Final screenshots and terminal observations
+are redacted.
+
+Every exit item now passes. Phase 3 is **100% accepted**, Phase 4 is unblocked
+but not started, and overall accepted project progress is **50%**.

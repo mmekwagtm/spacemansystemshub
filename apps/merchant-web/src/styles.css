@@ -70,6 +70,9 @@ footer {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   margin: 28px 0;
 }
+.forms > form {
+  min-width: 0;
+}
 form {
   background: #fff;
   border: 1px solid #d8e1e5;
@@ -93,7 +96,9 @@ textarea {
   border: 1px solid #aebdc4;
   border-radius: 8px;
   font: inherit;
+  min-width: 0;
   padding: 11px 12px;
+  width: 100%;
 }
 button {
   background: #176b87;

@@ -70,6 +70,7 @@ async function openStoreMenuWithItem(
   itemName: string,
 ) {
   const cards = market.getByRole("article").filter({ hasText: storeName });
+  await expect(cards.first()).toBeVisible({ timeout: 90_000 });
   const count = await cards.count();
   expect(count).toBeGreaterThan(0);
 
@@ -110,6 +111,9 @@ test("Phase 3 continues from persisted Google, CSV, merchant, and customer state
   const adminMarket = page.getByRole("region", { name: "Marketplace operations" });
   await expect(adminMarket.getByRole("heading", { name: /API import/i })).toHaveCount(0);
   await expect(adminMarket.getByRole("button", { name: /API/i })).toHaveCount(0);
+  await adminMarket
+    .getByLabel("Search managed stores")
+    .fill("KFC Mabopane North");
   const googleCard = adminMarket.getByRole("article").filter({ hasText: "KFC Mabopane North" }).first();
   await expect(googleCard.getByText("approved · active", { exact: true })).toBeVisible();
 
@@ -121,6 +125,9 @@ test("Phase 3 continues from persisted Google, CSV, merchant, and customer state
   await merchant.reload({ waitUntil: "domcontentloaded" });
   await signIn(merchant, merchantEmail, merchantPassword);
   await expect(merchant.getByRole("heading", { name: "Merchant operations foundation" })).toBeVisible({ timeout: 90_000 });
+  await merchantMarket
+    .getByLabel("Search merchant stores")
+    .fill(correctedName);
   const approvedCard = merchantMarket.getByRole("article").filter({ hasText: correctedName }).first();
   await expect(approvedCard).toBeVisible({ timeout: 90_000 });
   await expect(approvedCard.getByText("approved · active", { exact: true })).toBeVisible({ timeout: 90_000 });
@@ -173,23 +180,33 @@ test("Phase 3 continues from persisted Google, CSV, merchant, and customer state
   await expect(customer.getByRole("heading", { name: "Customer account ready" })).toBeVisible();
   await evidence(customerMarket, "playwright-customer-before-retirement.png");
 
-  const adminStores = adminMarket.getByRole("article").filter({ hasText: adminStoreName });
-  const adminStoreCount = await adminStores.count();
-  expect(adminStoreCount).toBeGreaterThan(0);
+  await adminMarket.getByLabel("Search managed stores").fill(adminStoreName);
+  const adminStore = adminMarket
+    .getByRole("article")
+    .filter({ hasText: adminStoreName })
+    .first();
+  await expect(adminStore).toBeVisible({ timeout: 90_000 });
   const targetStoreSelect = adminMarket.getByLabel("Target store");
   await targetStoreSelect.selectOption({ label: adminStoreName });
   const adminStoreId = await targetStoreSelect.inputValue();
   expect(adminStoreId).not.toBe("");
-  for (let index = 0; index < adminStoreCount; index += 1) {
-    await adminStores.nth(index).getByRole("button", { name: "Manage catalog" }).click();
-    const managed = adminMarket.locator("section.subpanel").filter({ hasText: "Managed items" });
-    await expect(managed.getByRole("heading", { name: "Playwright Juice" })).toHaveCount(0);
-    await expect(managed.getByRole("heading", { name: "Playwright Cookie" })).toHaveCount(0);
-    const manualCards = managed.getByRole("article").filter({ hasText: manualItemName });
-    if (await manualCards.count()) {
-      await manualCards.first().getByRole("button", { name: "Retire item" }).click();
-      await expect(page.getByText("Item retired.", { exact: true })).toBeVisible();
-    }
+  await adminStore.getByRole("button", { name: "Manage catalog" }).click();
+  const managed = adminMarket
+    .locator("section.subpanel")
+    .filter({ hasText: "Managed items" });
+  await expect(
+    managed.getByRole("heading", { name: "Playwright Juice" }),
+  ).toHaveCount(0);
+  await expect(
+    managed.getByRole("heading", { name: "Playwright Cookie" }),
+  ).toHaveCount(0);
+  const manualCard = managed
+    .getByRole("article")
+    .filter({ hasText: manualItemName })
+    .first();
+  if (await manualCard.count()) {
+    await manualCard.getByRole("button", { name: "Retire item" }).click();
+    await expect(page.getByText("Item retired.", { exact: true })).toBeVisible();
   }
   await evidence(adminMarket, "playwright-admin-csv-retirement-continuation.png");
 

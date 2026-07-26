@@ -32,8 +32,16 @@ function values(data: FormData, name: string): string[] {
 }
 
 export function MarketplacePanel({ ownerId, service }: MarketplacePanelProps) {
-  const stores = useAdminStores(service, { limit: 50 });
+  const [storeSearch, setStoreSearch] = useState("");
+  const stores = useAdminStores(service, {
+    limit: 50,
+    ...(storeSearch ? { search: storeSearch } : {}),
+  });
   const [storeId, setStoreId] = useState<string>();
+  const [createdStoreOption, setCreatedStoreOption] = useState<{
+    id: string;
+    name: string;
+  }>();
   const items = useManagedItems(service, storeId, { limit: 50 });
   const [batchId, setBatchId] = useState<string>();
   const importRows = useImportRows(service, batchId);
@@ -100,6 +108,7 @@ export function MarketplacePanel({ ownerId, service }: MarketplacePanelProps) {
       };
       const result = await service.saveAdminStore(storeInput);
       setStoreId(result.id);
+      setCreatedStoreOption({ id: result.id, name: storeInput.name });
       const file = data.get("cardImage");
       if (file instanceof File && file.size > 0) {
         const media = await service.stageMedia({
@@ -223,6 +232,14 @@ export function MarketplacePanel({ ownerId, service }: MarketplacePanelProps) {
           {notice}
         </p>
       ) : null}
+      <label className="search-field">
+        Search managed stores
+        <input
+          onChange={(event) => setStoreSearch(event.target.value)}
+          placeholder="Start typing a store name"
+          value={storeSearch}
+        />
+      </label>
 
       <div className="forms">
         <form onSubmit={(event) => void createStore(event)}>
@@ -319,6 +336,14 @@ export function MarketplacePanel({ ownerId, service }: MarketplacePanelProps) {
               required
             >
               <option value="">Select a store</option>
+              {createdStoreOption &&
+              !stores.data?.records.some(
+                (store) => store.id === createdStoreOption.id,
+              ) ? (
+                <option value={createdStoreOption.id}>
+                  {createdStoreOption.name}
+                </option>
+              ) : null}
               {stores.data?.records.map((store) => (
                 <option key={store.id} value={store.id}>
                   {store.name}
