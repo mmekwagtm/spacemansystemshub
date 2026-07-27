@@ -6,17 +6,17 @@ import {
   createNativeFirebaseClient,
 } from "@spaceman/app-firebase";
 import {
+  createCheckoutService,
   createFirestoreRepositories,
   createIdentityService,
   createMarketplaceService,
 } from "@spaceman/app-services";
+import { createCartStore } from "@spaceman/app-state";
 
 const client = createNativeFirebaseClient(
   parseExpoFirebaseConfig({
-    EXPO_PUBLIC_FIREBASE_API_KEY:
-      process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-    EXPO_PUBLIC_FIREBASE_APP_ID:
-      process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+    EXPO_PUBLIC_FIREBASE_API_KEY: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+    EXPO_PUBLIC_FIREBASE_APP_ID: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
     EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN:
       process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
     EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:
@@ -31,12 +31,18 @@ const client = createNativeFirebaseClient(
 );
 
 const callable = createCallableGateway(client);
+const repositories = createFirestoreRepositories(client.firestore);
 
 export const customerIdentityService = createIdentityService(
   createFirebaseAuthGateway(client),
   callable,
 );
 export const customerMarketplaceService = createMarketplaceService(
-  createFirestoreRepositories(client.firestore),
+  repositories,
   callable,
 );
+export const customerCheckoutService = createCheckoutService(
+  repositories,
+  callable,
+);
+export const customerCartStore = createCartStore({ storage: AsyncStorage });

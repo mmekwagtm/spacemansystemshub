@@ -11,17 +11,29 @@ import type {
 } from "@spaceman/app-database";
 import type {
   BootstrapCustomerProfileInput,
+  CheckoutQuoteResult,
+  CheckoutSession,
   CommandResult,
   CreateCheckoutSessionInput,
   CustomerRegistrationInput,
   CreateStaffUserInput,
+  DeliveryAddressCandidate,
+  DeliveryZone,
   DriverAssignmentInput,
   DriverLocationInput,
+  FeeRule,
   FulfillmentTransitionInput,
   IdentitySession,
   ImportBatch,
   ImportBatchRow,
+  InitializePaystackPaymentInput,
   Item,
+  Order,
+  PaystackPaymentAuthorization,
+  PaystackPaymentVerification,
+  PlatformSettings,
+  PublishDeliveryFeeRuleInput,
+  SearchDeliveryAddressesInput,
   SetItemAvailabilityInput,
   StageCsvCatalogImportInput,
   StageGoogleStoreImportInput,
@@ -31,7 +43,9 @@ import type {
   SubmitMerchantStoreInput,
   ReviewStoreSubmissionInput,
   UpdateMerchantStoreInput,
+  UpdateCheckoutSettingsInput,
   UpsertItemInput,
+  UpsertDeliveryZoneInput,
   UpsertStoreInput,
   RetireCatalogItemInput,
   CommitCatalogImportInput,
@@ -40,6 +54,7 @@ import type {
   CleanupCatalogMediaInput,
   UpdateUserScopeInput,
   UpdateUserStatusInput,
+  VerifyPaystackPaymentInput,
 } from "@spaceman/app-types";
 import {
   bootstrapCustomerProfileInputSchema,
@@ -52,18 +67,24 @@ import {
   driverAssignmentInputSchema,
   driverLocationInputSchema,
   fulfillmentTransitionInputSchema,
+  initializePaystackPaymentInputSchema,
+  publishDeliveryFeeRuleInputSchema,
   retireCatalogItemInputSchema,
   reviewStoreSubmissionInputSchema,
   setItemAvailabilityInputSchema,
+  searchDeliveryAddressesInputSchema,
   stageCsvCatalogImportInputSchema,
   stageGoogleStoreImportInputSchema,
   storePlaceSearchInputSchema,
   submitMerchantStoreInputSchema,
   updateUserScopeInputSchema,
   updateUserStatusInputSchema,
+  updateCheckoutSettingsInputSchema,
   updateMerchantStoreInputSchema,
+  upsertDeliveryZoneInputSchema,
   upsertItemInputSchema,
   upsertStoreInputSchema,
+  verifyPaystackPaymentInputSchema,
 } from "@spaceman/app-validation";
 import {
   normalizeCustomerCredentials,
@@ -317,12 +338,120 @@ export function createMarketplaceService(
   };
 }
 
-export function createCheckoutService(gateway: CallableGateway) {
+export interface CheckoutService {
+  searchAddresses(
+    input: SearchDeliveryAddressesInput,
+  ): Promise<DeliveryAddressCandidate[]>;
+  createSession(
+    input: CreateCheckoutSessionInput,
+  ): Promise<CheckoutQuoteResult>;
+  initializePayment(
+    input: InitializePaystackPaymentInput,
+  ): Promise<PaystackPaymentAuthorization>;
+  verifyPayment(
+    input: VerifyPaystackPaymentInput,
+  ): Promise<PaystackPaymentVerification>;
+  getSession(checkoutSessionId: string): Promise<CheckoutSession | null>;
+  getOrder(orderId: string): Promise<Order | null>;
+  listCustomerOrders(
+    customerId: string,
+    request?: PageRequest,
+  ): Promise<Page<Order>>;
+}
+
+export function createCheckoutService(
+  repositories: Pick<RepositoryBundle, "checkoutSessions" | "orders">,
+  gateway: CallableGateway,
+): CheckoutService {
   return {
-    createSession(input: CreateCheckoutSessionInput): Promise<CommandResult> {
+    searchAddresses(input) {
+      return gateway.invoke(
+        "searchDeliveryAddresses",
+        searchDeliveryAddressesInputSchema.parse(input),
+      );
+    },
+    createSession(input) {
       return gateway.invoke(
         "createCheckoutSession",
         createCheckoutSessionInputSchema.parse(input),
+      );
+    },
+    initializePayment(input) {
+      return gateway.invoke(
+        "initializePaystackPayment",
+        initializePaystackPaymentInputSchema.parse(input),
+      );
+    },
+    verifyPayment(input) {
+      return gateway.invoke(
+        "verifyPaystackPayment",
+        verifyPaystackPaymentInputSchema.parse(input),
+      );
+    },
+    getSession(checkoutSessionId) {
+      return repositories.checkoutSessions.getById(checkoutSessionId);
+    },
+    getOrder(orderId) {
+      return repositories.orders.getById(orderId);
+    },
+    listCustomerOrders(customerId, request) {
+      return repositories.orders.listForCustomer(
+        customerId,
+        request ?? { limit: 20 },
+      );
+    },
+  };
+}
+
+export interface CheckoutAdminService {
+  getSettings(): Promise<PlatformSettings | null>;
+  listDeliveryZones(request?: PageRequest): Promise<Page<DeliveryZone>>;
+  listFeeRules(
+    deliveryZoneId: string,
+    request?: PageRequest,
+  ): Promise<Page<FeeRule>>;
+  upsertDeliveryZone(input: UpsertDeliveryZoneInput): Promise<CommandResult>;
+  publishDeliveryFeeRule(
+    input: PublishDeliveryFeeRuleInput,
+  ): Promise<CommandResult>;
+  updateSettings(input: UpdateCheckoutSettingsInput): Promise<CommandResult>;
+}
+
+export function createCheckoutAdminService(
+  repositories: Pick<RepositoryBundle, "checkoutConfiguration">,
+  gateway: CallableGateway,
+): CheckoutAdminService {
+  return {
+    getSettings() {
+      return repositories.checkoutConfiguration.getSettings();
+    },
+    listDeliveryZones(request) {
+      return repositories.checkoutConfiguration.listDeliveryZones(
+        request ?? { limit: 20 },
+      );
+    },
+    listFeeRules(deliveryZoneId, request) {
+      return repositories.checkoutConfiguration.listFeeRules(
+        deliveryZoneId,
+        request ?? { limit: 20 },
+      );
+    },
+    upsertDeliveryZone(input) {
+      return gateway.invoke(
+        "upsertDeliveryZone",
+        upsertDeliveryZoneInputSchema.parse(input),
+      );
+    },
+    publishDeliveryFeeRule(input) {
+      return gateway.invoke(
+        "publishDeliveryFeeRule",
+        publishDeliveryFeeRuleInputSchema.parse(input),
+      );
+    },
+    updateSettings(input) {
+      return gateway.invoke(
+        "updateCheckoutSettings",
+        updateCheckoutSettingsInputSchema.parse(input),
       );
     },
   };

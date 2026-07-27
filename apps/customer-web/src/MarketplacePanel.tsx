@@ -4,13 +4,18 @@ import {
   useInfiniteActiveStores,
 } from "@spaceman/app-query";
 import type { MarketplaceService } from "@spaceman/app-services";
+import type { CartStore } from "@spaceman/app-state";
 import { useEffect, useMemo, useState } from "react";
 
 interface MarketplacePanelProps {
   service: MarketplaceService;
+  cartStore?: CartStore;
 }
 
-export function MarketplacePanel({ service }: MarketplacePanelProps) {
+export function MarketplacePanel({
+  service,
+  cartStore,
+}: MarketplacePanelProps) {
   const [search, setSearch] = useState("");
   const [storeId, setStoreId] = useState<string>();
   const [category, setCategory] = useState("");
@@ -39,13 +44,10 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
   }, [storeId, storeRecords]);
 
   const categories = useMemo(
-    () =>
-      [...new Set(itemRecords.map((item) => item.categoryLabel))].sort(),
+    () => [...new Set(itemRecords.map((item) => item.categoryLabel))].sort(),
     [itemRecords],
   );
-  const selectedStore = storeRecords.find(
-    (store) => store.id === storeId,
-  );
+  const selectedStore = storeRecords.find((store) => store.id === storeId);
   const catalogFailed =
     refreshFailed ||
     stores.isError ||
@@ -68,11 +70,12 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
       return;
     }
     try {
-      await Promise.all([
+      const results = await Promise.all([
         stores.refetch(),
         ...(storeId ? [items.refetch()] : []),
       ]);
-      if (!navigator.onLine) setRefreshFailed(true);
+      if (!navigator.onLine || results.some((result) => result.isError))
+        setRefreshFailed(true);
     } catch {
       setRefreshFailed(true);
     }
@@ -218,6 +221,41 @@ export function MarketplacePanel({ service }: MarketplacePanelProps) {
                 <span>
                   {item.available ? "Available" : "Temporarily unavailable"}
                 </span>
+                {cartStore ? (
+                  <button
+                    disabled={!item.available}
+                    type="button"
+                    onClick={() => {
+                      const cartItem = {
+                        store: {
+                          id: selectedStore.id,
+                          name: selectedStore.name,
+                        },
+                        item: {
+                          itemId: item.id,
+                          storeId: item.storeId,
+                          name: item.name,
+                          unitPrice: item.price,
+                          available: item.available,
+                        },
+                      };
+                      const result = cartStore.getState().addItem(cartItem);
+                      if (
+                        result.status === "store_conflict" &&
+                        window.confirm(
+                          `Replace the ${result.currentStore.name} cart with an item from ${selectedStore.name}?`,
+                        )
+                      )
+                        cartStore.getState().replaceWithItem(cartItem);
+                      if (result.status === "checkout_pending")
+                        window.alert(
+                          "Check the pending payment before changing this cart.",
+                        );
+                    }}
+                  >
+                    {item.available ? "Add to cart" : "Unavailable"}
+                  </button>
+                ) : null}
               </article>
             ))}
           </div>

@@ -39,6 +39,8 @@ export const deliveryAddressSchema = z.object({
   formattedAddress: z.string().trim().min(1).max(500),
   coordinates: coordinatesSchema,
   placeId: z.string().trim().min(1).max(256).optional(),
+  countryCode: z.literal("ZA").optional(),
+  locality: z.string().trim().min(1).max(160).optional(),
   instructions: z.string().trim().max(500).optional(),
 });
 
@@ -219,9 +221,7 @@ export const upsertItemInputSchema = z.object({
   available: z.boolean().default(true),
   categoryLabel: z.string().trim().min(1).max(120).default("General"),
   sortOrder: z.number().int().min(0).max(1_000_000).default(0),
-  source: z
-    .enum(["manual", "merchant", "catalog_csv"])
-    .default("manual"),
+  source: z.enum(["manual", "merchant", "catalog_csv"]).default("manual"),
   sourceId: z.string().trim().min(1).max(256).optional(),
   importBatchId: idSchema.optional(),
   imageAlt: z.string().trim().max(240).default(""),
@@ -304,10 +304,97 @@ export const checkoutLineInputSchema = z.object({
 });
 
 export const createCheckoutSessionInputSchema = z.object({
+  channel: z.enum(["customer_web", "customer_app"]),
+  idempotencyKey: z
+    .string()
+    .trim()
+    .min(16)
+    .max(128)
+    .regex(/^[A-Za-z0-9_-]+$/),
   storeId: idSchema,
   lines: z.array(checkoutLineInputSchema).min(1).max(50),
-  deliveryAddress: deliveryAddressSchema,
+  addressSelection: z.object({
+    placeId: z.string().trim().min(1).max(256),
+    sessionToken: z
+      .string()
+      .trim()
+      .min(16)
+      .max(36)
+      .regex(/^[A-Za-z0-9_-]+$/),
+    label: z.string().trim().min(1).max(120),
+    instructions: z.string().trim().max(500).optional(),
+  }),
+  testRunId: testRunIdSchema.optional(),
 });
+
+export const searchDeliveryAddressesInputSchema = z.object({
+  storeId: idSchema,
+  query: z.string().trim().min(3).max(200),
+  sessionToken: z
+    .string()
+    .trim()
+    .min(16)
+    .max(36)
+    .regex(/^[A-Za-z0-9_-]+$/),
+});
+
+export const upsertDeliveryZoneInputSchema = z.object({
+  deliveryZoneId: idSchema.optional(),
+  name: z.string().trim().min(1).max(160),
+  active: z.boolean(),
+  countryCode: z.literal("ZA"),
+  allowedLocalities: z
+    .array(z.string().trim().min(1).max(160))
+    .min(1)
+    .max(50)
+    .transform((values) => [...new Set(values)]),
+  testRunId: testRunIdSchema.optional(),
+});
+
+const nonNegativeMoneySchema = moneySchema.refine(
+  (value) => value.amountMinor >= 0,
+  { message: "Money values must not be negative." },
+);
+
+export const publishDeliveryFeeRuleInputSchema = z
+  .object({
+    deliveryZoneId: idSchema,
+    name: z.string().trim().min(1).max(160),
+    deliveryType: z.literal("standard"),
+    baseFee: nonNegativeMoneySchema,
+    includedDistanceMetres: z.number().int().min(0).max(100_000),
+    perKilometreFee: nonNegativeMoneySchema,
+    smallOrderThreshold: nonNegativeMoneySchema,
+    smallOrderSurcharge: nonNegativeMoneySchema,
+    minimumFee: nonNegativeMoneySchema,
+    maximumFee: nonNegativeMoneySchema,
+    effectiveFrom: z.string().datetime({ offset: true }),
+    notes: z.string().trim().max(500).optional(),
+    testRunId: testRunIdSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.minimumFee.amountMinor > value.maximumFee.amountMinor) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["maximumFee"],
+        message: "Maximum fee must be greater than or equal to minimum fee.",
+      });
+    }
+  });
+
+export const updateCheckoutSettingsInputSchema = z.object({
+  customerOrderingEnabled: z.boolean(),
+  mapsQuoteEnabled: z.boolean(),
+  paystackEnabled: z.boolean(),
+  testRunId: testRunIdSchema.optional(),
+});
+
+export const initializePaystackPaymentInputSchema = z.object({
+  checkoutSessionId: idSchema,
+});
+
+export const verifyPaystackPaymentInputSchema =
+  initializePaystackPaymentInputSchema;
 
 export const fulfillmentTransitionInputSchema = z.object({
   orderId: idSchema,

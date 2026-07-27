@@ -59,12 +59,44 @@ automated, five-app/manual, physical-device, and redacted evidence gates pass.
 - Routes, serviceability, delivery fees, checkout, Paystack, orders,
   fulfillment, App Check enforcement, and production remain outside Phase 3.
 
+## Phase 4 source state
+
+Phase 4 (Maps, checkout, and payment) source and complete local source gate
+pass. The nine development Functions are active, but Phase 4 is not yet
+accepted.
+
+- Customer Web and Customer App share a versioned one-store cart, authoritative
+  address/quote workflow, hosted Paystack launch, focus/resume reconciliation,
+  manual payment check, and offline blocking.
+- Admin Web manages ZA delivery zones, immutable fee-rule versions, and
+  super-admin enable flags. No provider secret is displayed or stored by a
+  client.
+- Trusted Functions own Places/Routes requests, ten-minute checkout quotes,
+  deterministic provider references, Paystack initialization/verification,
+  signed webhook handling, and exactly-once order creation.
+- Firestore Rules preserve customer ownership and Function-only writes while
+  adding staff-only configuration reads. The required customer-order and
+  fee-rule indexes are declared.
+- On 2026-07-28, the Maps server key was restricted to the Places backend,
+  Places API (New), and Routes services. The address callable was redeployed,
+  returned five Mabopane suggestions on the Galaxy Note9, and no longer
+  surfaces the incorrect identity-service error.
+- A live-matrix attempt verified isolated users, versioned configuration, an
+  eligible catalog, three-character validation, and exact cleanup. It exposed
+  an overlong test/Web Places session token; source now enforces Google's
+  36-character limit. The complete matrix rerun remains pending.
+- Focused and root documentation, type-check, lint, 76 tests, all builds,
+  Expo compatibility/Doctor, both Android exports, and non-mutating web
+  foundations pass. Owner-operated cloud/provider/live/payment/full
+  regression/device gates remain outstanding.
+
 ## Dependency and cleanup state
 
 - The root pnpm installation and lockfile are synchronized. SDK-compatible
   AsyncStorage, gesture-handler, Reanimated, Worklets, Metro, and Customer App
-  `expo-network` packages are declared in the native manifests; `expo install
-  --check` passes for both apps.
+  `expo-network` packages are declared in the native manifests. Customer Web
+  and Customer App now depend on shared `app-state`; no hosted-checkout client
+  SDK or WebView dependency was added.
 - `firebase/functions` keeps only deployable npm registry dependencies at
   runtime; shared workspace source is bundled at build time because Cloud
   Build cannot install `workspace:*` dependencies with npm.
@@ -165,12 +197,19 @@ gates:
 
 ## Remaining later-phase actions
 
-- Rotate the Paystack **test** secret before any Phase 4 payment work because
-  the original value appeared in diagnostic output during setup.
+- Confirm the deployed Rules/indexes and all exact transport bindings, confirm
+  rotated Paystack test secret version `3`, and configure the test webhook.
+- Pass the self-cleaning live matrix, successful and failed/abandoned test
+  payments, replay checks, isolated Phase 4 Playwright, Customer Web review,
+  and Galaxy Note9 Expo Go acceptance.
+- Build and accept self-contained EAS preview APKs only at the end of Phase 7
+  as part of final quality and launch.
 - No Phase 2 or Phase 3 acceptance action remains.
 
 ## Next phase gate
 
 Phase 3 is **100% accepted** and overall accepted progress is **50%**. Phase 4
-(Maps, checkout, and payment) is unblocked but not started. Rotate the exposed
-Paystack test secret before implementing or exercising Phase 4 payment work.
+(Maps, checkout, and payment) source and local validation pass but remain
+unaccepted until the remaining provider, live-payment, cleanup, full browser,
+and physical-device evidence passes. Do not mark Phase 4 complete or move
+overall accepted progress to **62.5%** before that explicit owner review.

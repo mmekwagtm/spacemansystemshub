@@ -580,7 +580,12 @@ export function mapFirebaseError(error: unknown, source: string): AppError {
           ? "An account already exists for that email address."
           : appCode === "rate_limited"
             ? "Too many attempts were made. Wait and try again."
-            : "The identity service could not complete that request. Please try again.";
+            : source ===
+                "app-firebase/callable/searchDeliveryAddresses"
+              ? "Delivery address search is temporarily unavailable. Please try again."
+              : source.startsWith("app-firebase/auth/")
+                ? "The identity service could not complete that request. Please try again."
+                : "The requested service could not complete that request. Please try again.";
     return new AppError({
       code: appCode,
       source,

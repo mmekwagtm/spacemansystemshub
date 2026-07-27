@@ -395,7 +395,7 @@ Complete this Phase 2 regression and Phase 3 marketplace matrix:
 Do not use the browser console or Firestore Console to modify protected role,
 status, or scope fields.
 
-## 11. Build and test the two self-contained preview APKs
+## 11. Run the two native regressions through Expo Go
 
 First verify both native dependency sets. Run from
 `/home/mmekwa/Desktop/projects/spacemansystems`:
@@ -405,39 +405,33 @@ corepack pnpm --filter @spaceman/customer-app exec expo install --check
 corepack pnpm --filter @spaceman/driver-app exec expo install --check
 ```
 
-Build the Customer App internal-distribution APK from
+Start Customer App in Expo Go from
 `/home/mmekwa/Desktop/projects/spacemansystems/apps/customer-app`:
 
 ```sh
 source /home/mmekwa/.nvm/nvm.sh
-env -u DEBUG corepack pnpm dlx eas-cli build --profile preview --platform android --wait
+corepack pnpm exec expo start --go --lan
 ```
 
-Build the Driver App internal-distribution APK from
+Complete the Customer checks below, stop Metro with `Ctrl+C`, then start Driver
+App in Expo Go from
 `/home/mmekwa/Desktop/projects/spacemansystems/apps/driver-app`:
 
 ```sh
 source /home/mmekwa/.nvm/nvm.sh
-env -u DEBUG corepack pnpm dlx eas-cli build --profile preview --platform android --wait
+corepack pnpm exec expo start --go --lan
 ```
 
-Download both completed APKs, connect the physical Android device by USB, and
-install them. Run from `/home/mmekwa/Desktop/projects/spacemansystems`,
-replacing each absolute path with the downloaded file:
+Connect the physical Android device by USB and confirm it is visible. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
 adb devices
-adb install -r /absolute/path/to/customer-preview.apk
-adb install -r /absolute/path/to/driver-preview.apk
-adb shell pm path com.customer.app
-adb shell pm path com.driver.app
 ```
 
-Stop every Metro server before acceptance. Each app must launch from its normal
-Android launcher icon and reach the configured development Firebase project
-without Expo Go, a development-client launcher, or a workstation connection.
-An OTA update cannot substitute for rebuilding after a native dependency,
-plugin, Android configuration, icon, splash, or Firebase-file change.
+Each app must load the current local bundle in Expo Go and reach the configured
+development Firebase project. Self-contained EAS preview-APK testing is not a
+development regression requirement and is deferred to the final Phase 7 gate.
 
 In Customer App, verify both guest and retained active-customer journeys:
 
@@ -519,7 +513,297 @@ After sections 10 through 12 pass, check every Phase 3 exit item. The project
 owner performs any push manually. Production deployment remains blocked until
 Phase 7 reaches 100% and its acceptance matrix is explicitly approved.
 
-## Doctor check on APK's
+## 14. Review Phase 4 source and provider prerequisites
+
+Do not infer deployment from local source. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+git diff --check
+corepack pnpm docs:check
+corepack pnpm typecheck
+corepack pnpm lint
+corepack pnpm test
+corepack pnpm build
+corepack pnpm --filter @spaceman/customer-app exec expo install --check
+corepack pnpm --filter @spaceman/driver-app exec expo install --check
+env -u DEBUG corepack pnpm dlx expo-doctor apps/customer-app
+env -u DEBUG corepack pnpm dlx expo-doctor apps/driver-app
+```
+
+In Google Cloud Console, edit the existing server key used by
+`GOOGLE_MAPS_SERVER_API_KEY`. Keep it server-only and allow exactly the Places
+backend service (`places-backend.googleapis.com`), Places API (New)
+(`places.googleapis.com`), and Routes API (`routes.googleapis.com`). Do not
+create or expose a browser/native Maps key.
+
+Confirm the required APIs without reading the key. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+gcloud services list --enabled --project=spacemansystemsbackend --filter='config.name:(places-backend.googleapis.com OR places.googleapis.com OR routes.googleapis.com)' --format='value(config.name)'
+```
+
+All three service names must be returned.
+
+Confirm secret versions without printing their values. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+gcloud secrets versions list PAYSTACK_SECRET_KEY --project=spacemansystemsbackend --format='table(name,state,createTime)'
+gcloud secrets versions list GOOGLE_MAPS_SERVER_API_KEY --project=spacemansystemsbackend --format='table(name,state,createTime)'
+```
+
+Confirm that Paystack version `3` is a rotated test key while emitting only a
+verdict. Run from `/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+phase4_paystack_candidate="$(gcloud secrets versions access 3 --secret=PAYSTACK_SECRET_KEY --project=spacemansystemsbackend)"
+case "$phase4_paystack_candidate" in
+  sk_test_*) echo "Paystack version 3 is test mode." ;;
+  *) echo "ERROR: Paystack version 3 is not a test key."; unset phase4_paystack_candidate; exit 1 ;;
+esac
+unset phase4_paystack_candidate
+```
+
+Never enable checkout with an `sk_live_` credential in development.
+
+## 15. Deploy exact Phase 4 development infrastructure
+
+Confirm the new exports and build the deployable bundle. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+rg -n 'export const (searchDeliveryAddresses|createCheckoutSession|upsertDeliveryZone|publishDeliveryFeeRule|updateCheckoutSettings|initializePaystackPayment|verifyPaystackPayment|handlePaystackWebhook|paystackPaymentReturn)' firebase/functions/src/phase4.ts
+corepack pnpm --dir firebase/functions run build
+```
+
+Review the diff, then deploy only the shared development Rules/indexes and the
+exact Phase 4 Functions. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+env -u DEBUG corepack pnpm exec firebase deploy --only firestore:rules,firestore:indexes --project spacemansystemsbackend
+env -u DEBUG FUNCTIONS_DISCOVERY_TIMEOUT=60000 corepack pnpm exec firebase deploy --only functions:searchDeliveryAddresses,functions:createCheckoutSession,functions:upsertDeliveryZone,functions:publishDeliveryFeeRule,functions:updateCheckoutSettings,functions:initializePaystackPayment,functions:verifyPaystackPayment,functions:handlePaystackWebhook,functions:paystackPaymentReturn --project spacemansystemsbackend
+```
+
+Do not deploy Hosting, production, or unrelated Functions.
+
+Every callable/HTTP service needs public transport invocation while its handler
+continues to enforce Firebase Auth, role/status, signature, and ownership.
+Inspect the exact policies first. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+for phase4_service in searchdeliveryaddresses createcheckoutsession upsertdeliveryzone publishdeliveryfeerule updatecheckoutsettings initializepaystackpayment verifypaystackpayment handlepaystackwebhook paystackpaymentreturn
+do
+  gcloud run services get-iam-policy "$phase4_service" --project=spacemansystemsbackend --region=africa-south1 --flatten='bindings[].members' --filter='bindings.role:roles/run.invoker AND bindings.members:allUsers' --format='table(bindings.role,bindings.members)'
+done
+```
+
+Only after reviewing the empty/missing bindings, apply transport access to
+exactly those nine services. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+for phase4_service in searchdeliveryaddresses createcheckoutsession upsertdeliveryzone publishdeliveryfeerule updatecheckoutsettings initializepaystackpayment verifypaystackpayment handlepaystackwebhook paystackpaymentreturn
+do
+  gcloud run services add-iam-policy-binding "$phase4_service" --project=spacemansystemsbackend --region=africa-south1 --member=allUsers --role=roles/run.invoker --quiet
+done
+```
+
+Rerun the read-only loop and require one binding per service.
+
+## 16. Configure Paystack test webhook and Admin checkout settings
+
+In the Paystack test dashboard, set the webhook URL to:
+
+```text
+https://africa-south1-spacemansystemsbackend.cloudfunctions.net/handlePaystackWebhook
+```
+
+The fixed informational return endpoint is:
+
+```text
+https://africa-south1-spacemansystemsbackend.cloudfunctions.net/paystackPaymentReturn
+```
+
+Start Admin Web from `/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+corepack pnpm --filter @spaceman/admin-web dev --host 127.0.0.1
+```
+
+Sign in as the retained super administrator. Under **Maps, checkout, and
+payment controls**:
+
+1. Create or update the active ZA delivery zone with the reviewed exact
+   Mabopane locality list.
+2. Publish fee-rule version 1 with R20 base, 3,000 included metres, R4/km,
+   R100 threshold, R10 surcharge, R20 minimum, and R80 maximum.
+3. Confirm the new immutable version is active.
+4. Enable customer ordering, Maps quotes, and new Paystack payments only after
+   configuration is complete.
+
+Stop the server with `Ctrl+C`.
+
+## 17. Run the self-cleaning Phase 4 backend matrix
+
+Application Default Credentials must be authorized for development. Run the
+unpaid/abandoned path from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+(
+  set -a
+  source apps/customer-web/.env.local
+  set +a
+  env -u DEBUG GOOGLE_CLOUD_PROJECT=spacemansystemsbackend SPACEMAN_ENVIRONMENT=development SPACEMAN_FUNCTIONS_REGION="${VITE_FUNCTIONS_REGION:-africa-south1}" SPACEMAN_FIREBASE_WEB_API_KEY="$VITE_FIREBASE_API_KEY" corepack pnpm --dir firebase/functions run test:checkout:live
+)
+```
+
+The matrix checks address minimum/debounce contract, Maps success and provider
+failure, out-of-zone denial, catalog change, idempotency conflict/replay,
+direct-write denial, cross-customer denial, hosted Paystack initialization,
+no unpaid order, prior-setting restoration, and exact zero-residue cleanup.
+
+Run the successful-payment variant from the same directory:
+
+```sh
+(
+  set -a
+  source apps/customer-web/.env.local
+  set +a
+  env -u DEBUG GOOGLE_CLOUD_PROJECT=spacemansystemsbackend SPACEMAN_ENVIRONMENT=development SPACEMAN_FUNCTIONS_REGION="${VITE_FUNCTIONS_REGION:-africa-south1}" SPACEMAN_FIREBASE_WEB_API_KEY="$VITE_FIREBASE_API_KEY" corepack pnpm --dir firebase/functions run test:checkout:live -- --complete-payment
+)
+```
+
+The script prints one temporary Paystack hosted URL and pauses. Complete a test
+payment using Paystack's current documented test data, then press Enter. It
+must verify the same order twice and finish with exact Auth/Firestore cleanup.
+Do not paste provider card data, account credentials, or the hosted URL into
+tracked evidence.
+
+Use Paystack test mode to perform one declined or explicitly abandoned hosted
+checkout as a separate owner check. **Check payment** must report failure or
+abandonment and Firestore must contain no corresponding order.
+
+## 18. Run Phase 3 regression and isolated Phase 4 Playwright
+
+Run the accepted Phase 3 browser regression with the existing ignored owner
+environment from `/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+(
+  set -a
+  source .phase3-owner.env.local
+  set +a
+  corepack pnpm test:web:e2e
+)
+```
+
+Create an ignored `.phase4-owner.env.local` in the repository root containing
+only retained development test-account/store identifiers:
+
+```sh
+PHASE4_ADMIN_EMAIL=
+PHASE4_ADMIN_PASSWORD=
+PHASE4_CUSTOMER_EMAIL=
+PHASE4_CUSTOMER_PASSWORD=
+PHASE4_STORE_NAME=
+PHASE4_ITEM_NAME=
+PHASE4_ADDRESS_QUERY=Mabopane Central City
+```
+
+The named store/item must already be active, approved, open, available, above
+minimum order, and linked to the configured zone. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+(
+  set -a
+  source .phase4-owner.env.local
+  set +a
+  corepack pnpm test:web:e2e:phase4
+)
+```
+
+The runner creates a unique browser `testRunId`, injects it only into the test
+build, validates guest-cart preservation, sign-in, offline blocking, address
+selection, quote display, and the approved `checkout.paystack.com` popup, then
+calls exact cleanup and verifies zero tagged records.
+
+## 19. Accept Customer App through Expo Go on the Galaxy Note9
+
+Run compatibility/export checks from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+corepack pnpm --filter @spaceman/customer-app exec expo install --check
+env -u DEBUG corepack pnpm dlx expo-doctor apps/customer-app
+corepack pnpm --filter @spaceman/customer-app exec expo export --platform android --output-dir .local-evidence/phase4-customer-export
+```
+
+Start the current Customer App bundle in Expo Go from
+`/home/mmekwa/Desktop/projects/spacemansystems/apps/customer-app`:
+
+```sh
+source /home/mmekwa/.nvm/nvm.sh
+corepack pnpm exec expo start --go --lan
+```
+
+Open the displayed project in Expo Go on the Note9. Before exercising the
+workflow, clear old device logs from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+adb logcat -c
+```
+
+On the Note9, verify persisted one-store replacement, guest intent, unavailable
+items, Mabopane address search/attribution, quote details, expiry, offline
+blocking, hosted browser launch, app-resume reconciliation, manual payment
+check, and exactly one visible paid order. Then inspect only crash/error
+markers from `/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+adb logcat -d -b main -b crash | rg 'FATAL EXCEPTION|AppError|Required public Firebase|PAYSTACK|GOOGLE_MAPS'
+```
+
+Do not capture credentials, full addresses, provider tokens, or payment data.
+Stop Metro with `Ctrl+C` after the check. Self-contained EAS preview-APK
+acceptance is deferred to the end of Phase 7 and is not part of Phase 4.
+
+## 20. Rollback and secret retirement
+
+If a Phase 4 problem appears, use Admin Web to disable **new** customer
+ordering/Maps quote/payment initialization. Do not undeploy or block
+`handlePaystackWebhook`; already-initialized payments must still reconcile.
+
+Only after version `3` completes a successful payment, repeat verification, and
+webhook replay without duplication, disable version `2`. Run from
+`/home/mmekwa/Desktop/projects/spacemansystems`:
+
+```sh
+gcloud secrets versions disable 2 --secret=PAYSTACK_SECRET_KEY --project=spacemansystemsbackend
+gcloud secrets versions list PAYSTACK_SECRET_KEY --project=spacemansystemsbackend --format='table(name,state,createTime)'
+```
+
+## 21. Record and accept Phase 4 evidence
+
+Store redacted terminal evidence under
+`docs/live-test-data-docs/terminal-data/terminal-data-phase-4` and only the
+necessary screenshots under
+`docs/live-test-data-docs/images/phase4-images/`. Record each exact
+`testRunId`, payment outcome, replay result, cleanup verdict, browser/device
+gate, and reviewed source revision without recording secrets or account
+identifiers.
+
+Phase 4 reaches **100%** and overall accepted progress reaches **62.5%** only
+after every checklist item in `docs/plans-docs/PLAN-phase-4.md` passes and the
+owner explicitly approves the redacted evidence.
+
+## Native Expo Doctor checks
 
 ```sh
 cd /home/mmekwa/Desktop/projects/spacemansystems/apps/customer-app
@@ -588,3 +872,9 @@ env -u DEBUG corepack pnpm dlx expo-doctor
 - [Firebase App Check](https://firebase.google.com/docs/app-check)
 - [Expo environment setup](https://docs.expo.dev/get-started/set-up-your-environment/)
 - [Playwright test runner](https://playwright.dev/docs/test-cli)
+- [Google Address Validation coverage](https://developers.google.com/maps/documentation/address-validation/coverage)
+- [Google Place Details](https://developers.google.com/maps/documentation/places/web-service/place-details)
+- [Google Routes computeRoutes](https://developers.google.com/maps/documentation/routes/compute_route_directions)
+- [Paystack hosted payments](https://paystack.com/docs/payments/accept-payments/)
+- [Paystack transaction verification](https://paystack.com/docs/payments/verify-payments/)
+- [Paystack webhooks](https://paystack.com/docs/payments/webhooks/)

@@ -1,9 +1,11 @@
 import { formatMoney } from "@spaceman/app-core";
 import { isAppError, type AppError } from "@spaceman/app-errors";
 import type {
+  CheckoutService,
   IdentityService,
   MarketplaceService,
 } from "@spaceman/app-services";
+import type { CartStore } from "@spaceman/app-state";
 import type {
   CustomerRegistrationInput,
   IdentitySession,
@@ -14,6 +16,9 @@ import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 
 const CustomerMarketplace = lazy(async () => ({
   default: (await import("./MarketplacePanel")).MarketplacePanel,
+}));
+const CustomerCheckout = lazy(async () => ({
+  default: (await import("./CheckoutPanel")).CheckoutPanel,
 }));
 
 const customerJourneys = [
@@ -26,6 +31,9 @@ const customerJourneys = [
 interface AppProps {
   identityService: IdentityService;
   marketplaceService?: MarketplaceService;
+  checkoutService?: CheckoutService;
+  cartStore?: CartStore;
+  checkoutTestRunId?: string;
 }
 
 function messageFor(error: unknown): string {
@@ -34,7 +42,13 @@ function messageFor(error: unknown): string {
     : "Something went wrong. Please try again.";
 }
 
-export function App({ identityService, marketplaceService }: AppProps) {
+export function App({
+  identityService,
+  marketplaceService,
+  checkoutService,
+  cartStore,
+  checkoutTestRunId,
+}: AppProps) {
   const [session, setSession] = useState<IdentitySession | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -121,7 +135,23 @@ export function App({ identityService, marketplaceService }: AppProps) {
 
       {marketplaceService ? (
         <Suspense fallback={<p role="status">Loading active catalog…</p>}>
-          <CustomerMarketplace service={marketplaceService} />
+          <CustomerMarketplace
+            service={marketplaceService}
+            {...(cartStore ? { cartStore } : {})}
+          />
+        </Suspense>
+      ) : null}
+
+      {checkoutService && cartStore ? (
+        <Suspense fallback={<p role="status">Loading checkout…</p>}>
+          <CustomerCheckout
+            service={checkoutService}
+            cartStore={cartStore}
+            checkoutAllowed={access.granted}
+            onRequireAccount={() => setShowAccount(true)}
+            {...(session ? { customerId: session.uid } : {})}
+            {...(checkoutTestRunId ? { testRunId: checkoutTestRunId } : {})}
+          />
         </Suspense>
       ) : null}
 

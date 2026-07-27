@@ -7,6 +7,7 @@ import {
 } from "@spaceman/app-firebase";
 import {
   createFirestoreRepositories,
+  createCheckoutAdminService,
   createIdentityAdminService,
   createIdentityService,
   createMarketplaceService,
@@ -17,6 +18,7 @@ const client = createFirebaseClient(
   import.meta.env.VITE_FUNCTIONS_REGION ?? "africa-south1",
 );
 const callable = createCallableGateway(client);
+const repositories = createFirestoreRepositories(client.firestore);
 
 export const adminIdentityService = createIdentityService(
   createFirebaseAuthGateway(client),
@@ -24,7 +26,11 @@ export const adminIdentityService = createIdentityService(
 );
 export const identityAdminService = createIdentityAdminService(callable);
 export const adminMarketplaceService = createMarketplaceService(
-  createFirestoreRepositories(client.firestore),
+  repositories,
   callable,
   createCatalogMediaGateway(client),
+);
+export const adminCheckoutService = createCheckoutAdminService(
+  repositories,
+  callable,
 );

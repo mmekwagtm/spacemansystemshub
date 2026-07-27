@@ -1,11 +1,15 @@
 import { AppError } from "@spaceman/app-errors";
 import type {
+  CheckoutSession,
+  DeliveryZone,
   DriverAssignment,
+  FeeRule,
   ImportBatch,
   ImportBatchRow,
   Item,
   Notification,
   Order,
+  PlatformSettings,
   Store,
   UserProfile,
 } from "@spaceman/app-types";
@@ -75,6 +79,21 @@ export interface OrderRepository {
   ): Promise<Page<Order>>;
 }
 
+export interface CheckoutSessionRepository {
+  getById(checkoutSessionId: string): Promise<CheckoutSession | null>;
+}
+
+export interface CheckoutConfigurationRepository {
+  getSettings(): Promise<PlatformSettings | null>;
+  getDeliveryZone(deliveryZoneId: string): Promise<DeliveryZone | null>;
+  getFeeRule(feeRuleId: string): Promise<FeeRule | null>;
+  listDeliveryZones(page: PageRequest): Promise<Page<DeliveryZone>>;
+  listFeeRules(
+    deliveryZoneId: string,
+    page: PageRequest,
+  ): Promise<Page<FeeRule>>;
+}
+
 export interface DriverAssignmentRepository {
   getByOrderId(orderId: string): Promise<DriverAssignment | null>;
   listActiveForDriver(
@@ -95,6 +114,8 @@ export interface RepositoryBundle {
   stores: StoreRepository;
   items: ItemRepository;
   importBatches: ImportBatchRepository;
+  checkoutSessions: CheckoutSessionRepository;
+  checkoutConfiguration: CheckoutConfigurationRepository;
   orders: OrderRepository;
   assignments: DriverAssignmentRepository;
   notifications: NotificationRepository;
@@ -106,28 +127,38 @@ function pageSize(request: PageRequest): number {
   return Math.max(1, Math.min(request.limit ?? 20, MAX_PAGE_SIZE));
 }
 
+export function normalizeFirestoreValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeFirestoreValue);
+  if (value === null || typeof value !== "object") return value;
+  if ("toDate" in value) {
+    const toDate = (value as { toDate?: unknown }).toDate;
+    if (typeof toDate === "function") {
+      const date = toDate.call(value) as unknown;
+      if (date instanceof Date && Number.isFinite(date.getTime()))
+        return date.toISOString();
+    }
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      normalizeFirestoreValue(entry),
+    ]),
+  );
+}
+
 function recordFromSnapshot<TRecord extends { id: string }>(
   snapshot: QueryDocumentSnapshot<DocumentData>,
 ): TRecord {
-  const data = snapshot.data() as Record<string, unknown>;
-  const normalizeTime = (value: unknown): unknown => {
-    if (typeof value === "string") {
-      return value;
-    }
-    if (value !== null && typeof value === "object" && "toDate" in value) {
-      const toDate = (value as { toDate?: unknown }).toDate;
-      if (typeof toDate === "function") {
-        return (toDate.call(value) as Date).toISOString();
-      }
-    }
-    return value;
-  };
+  const data = normalizeFirestoreValue(snapshot.data()) as Record<
+    string,
+    unknown
+  >;
 
   return {
     ...data,
     id: snapshot.id,
-    createdAt: normalizeTime(data.createdAt),
-    updatedAt: normalizeTime(data.updatedAt),
   } as unknown as TRecord;
 }
 
@@ -188,6 +219,46 @@ async function readPage<TRecord extends { id: string }>(
   };
 }
 
+async function readOrderedPage<TRecord extends { id: string }>(
+  firestore: Firestore,
+  collectionName: string,
+  request: PageRequest,
+  constraints: QueryConstraint[],
+): Promise<Page<TRecord>> {
+  const reference = collection(firestore, collectionName);
+  const cursorSnapshot = request.cursor
+    ? await getDoc(doc(firestore, collectionName, request.cursor))
+    : undefined;
+  if (
+    request.cursor &&
+    cursorSnapshot !== undefined &&
+    !cursorSnapshot.exists()
+  )
+    throw new AppError({
+      code: "invalid_input",
+      source: "app-database",
+      message: `Cursor ${request.cursor} does not exist.`,
+      userMessage: "This page is no longer available. Refresh and try again.",
+    });
+
+  const size = pageSize(request);
+  const snapshot = await getDocs(
+    query(
+      reference,
+      ...constraints,
+      ...(cursorSnapshot?.exists() ? [startAfter(cursorSnapshot)] : []),
+      limit(size + 1),
+    ),
+  );
+  const visible = snapshot.docs.slice(0, size);
+  const records = visible.map((item) => recordFromSnapshot<TRecord>(item));
+  const last = visible.at(-1);
+  return {
+    records,
+    ...(snapshot.docs.length > size && last ? { nextCursor: last.id } : {}),
+  };
+}
+
 export function normalizeCatalogSearch(value: string): string {
   return value.trim().toLocaleLowerCase("en-ZA").replace(/\s+/g, " ");
 }
@@ -226,7 +297,15 @@ function catalogFilters(
 
 export function createFirestoreRepositories(
   firestore: Firestore,
-): Pick<RepositoryBundle, "stores" | "items" | "importBatches"> {
+): Pick<
+  RepositoryBundle,
+  | "stores"
+  | "items"
+  | "importBatches"
+  | "checkoutSessions"
+  | "checkoutConfiguration"
+  | "orders"
+> {
   return {
     stores: {
       getById(storeId) {
@@ -296,6 +375,72 @@ export function createFirestoreRepositories(
           request,
           [],
         );
+      },
+    },
+    checkoutSessions: {
+      getById(checkoutSessionId) {
+        return readById<CheckoutSession>(
+          firestore,
+          "checkoutSessions",
+          checkoutSessionId,
+        );
+      },
+    },
+    checkoutConfiguration: {
+      getSettings() {
+        return readById<PlatformSettings>(
+          firestore,
+          "platformSettings",
+          "default",
+        );
+      },
+      getDeliveryZone(deliveryZoneId) {
+        return readById<DeliveryZone>(
+          firestore,
+          "deliveryZones",
+          deliveryZoneId,
+        );
+      },
+      getFeeRule(feeRuleId) {
+        return readById<FeeRule>(firestore, "feeRules", feeRuleId);
+      },
+      listDeliveryZones(request) {
+        return readOrderedPage<DeliveryZone>(
+          firestore,
+          "deliveryZones",
+          request,
+          [orderBy("name")],
+        );
+      },
+      listFeeRules(deliveryZoneId, request) {
+        return readOrderedPage<FeeRule>(firestore, "feeRules", request, [
+          where("deliveryZoneId", "==", deliveryZoneId),
+          orderBy("version", "desc"),
+        ]);
+      },
+    },
+    orders: {
+      getById(orderId) {
+        return readById<Order>(firestore, "orders", orderId);
+      },
+      listForCustomer(customerId, request) {
+        return readOrderedPage<Order>(firestore, "orders", request, [
+          where("customerId", "==", customerId),
+          orderBy("createdAt", "desc"),
+        ]);
+      },
+      listOperationalForStore(storeId, request) {
+        return readOrderedPage<Order>(firestore, "orders", request, [
+          where("storeId", "==", storeId),
+          where("fulfillment.status", "in", [
+            "paid",
+            "confirmed",
+            "preparing",
+            "ready_for_pickup",
+            "on_the_way",
+          ]),
+          orderBy("updatedAt", "desc"),
+        ]);
       },
     },
   };

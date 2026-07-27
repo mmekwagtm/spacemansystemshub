@@ -1,5 +1,3 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-
 import {
   FULFILLMENT_STATUSES,
   isAppRole,
@@ -19,17 +17,14 @@ import {
   assertTrustedCommandAccess,
   assertUserManagementScope,
   assertUserStatusTransition,
-  decidePaystackWebhookAction,
 } from "@spaceman/app-functions";
 import {
   archiveOrRedactAccountInputSchema,
   bootstrapCustomerProfileInputSchema,
   createStaffUserInputSchema,
-  createCheckoutSessionInputSchema,
   driverAssignmentInputSchema,
   driverLocationInputSchema,
   fulfillmentTransitionInputSchema,
-  paystackWebhookSchema,
   refundRequestInputSchema,
   testFixtureMutationInputSchema,
   updateUserScopeInputSchema,
@@ -38,8 +33,7 @@ import {
 import { getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
-import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
-import { defineSecret } from "firebase-functions/params";
+import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 
 export {
@@ -57,6 +51,17 @@ export {
   upsertItem,
   upsertStore,
 } from "./marketplace.js";
+export {
+  createCheckoutSession,
+  handlePaystackWebhook,
+  initializePaystackPayment,
+  paystackPaymentReturn,
+  publishDeliveryFeeRule,
+  searchDeliveryAddresses,
+  updateCheckoutSettings,
+  upsertDeliveryZone,
+  verifyPaystackPayment,
+} from "./phase4.js";
 
 if (getApps().length === 0) {
   initializeApp();
@@ -64,7 +69,6 @@ if (getApps().length === 0) {
 
 const database = getFirestore();
 const authentication = getAuth();
-const paystackSecret = defineSecret("PAYSTACK_SECRET_KEY");
 const functionRegion = process.env.SPACEMAN_FUNCTIONS_REGION ?? "africa-south1";
 
 type Actor = {
@@ -564,22 +568,6 @@ export const updateUserScope = onCall(
   },
 );
 
-export const createCheckoutSession = onCall(
-  { region: functionRegion },
-  async (request) => {
-    const actor = await requireActiveActor(request);
-    requireTrustedCommand(actor, "createCheckoutSession");
-    parseCallableInput(createCheckoutSessionInputSchema, request.data);
-
-    // A caller cannot supply an address fee or serviceability result. Until the server-side
-    // Google Maps adapter and fee rules are configured, checkout must remain fail-closed.
-    throw new HttpsError(
-      "failed-precondition",
-      "Delivery quote verification is not configured for this development project.",
-    );
-  },
-);
-
 export const transitionMerchantFulfillment = onCall(
   { region: functionRegion },
   async (request) => {
@@ -1054,249 +1042,61 @@ export const cleanupTestFixtures = onCall(
       "driverAssignments",
       "driverLocations",
       "notifications",
+      "notificationOutbox",
       "activities",
       "auditLogs",
+      "feeRules",
+      "deliveryZones",
       "importBatches",
       "settlements",
     ];
     let deleted = 0;
 
     for (const collectionName of collections) {
-      const snapshots = await database
-        .collection(collectionName)
-        .where("testRunId", "==", input.testRunId)
-        .limit(250)
-        .get();
-      if (snapshots.empty) {
-        continue;
-      }
+      for (let batchNumber = 0; batchNumber < 100; batchNumber += 1) {
+        const snapshots = await database
+          .collection(collectionName)
+          .where("testRunId", "==", input.testRunId)
+          .limit(250)
+          .get();
+        if (snapshots.empty) break;
 
-      const batch = database.batch();
-      snapshots.docs.forEach((snapshot) => batch.delete(snapshot.ref));
-      await batch.commit();
-      deleted += snapshots.size;
+        const batch = database.batch();
+        snapshots.docs.forEach((snapshot) => batch.delete(snapshot.ref));
+        await batch.commit();
+        deleted += snapshots.size;
+        if (snapshots.size < 250) break;
+      }
+    }
+
+    const residue = (
+      await Promise.all(
+        collections.map((collectionName) =>
+          database
+            .collection(collectionName)
+            .where("testRunId", "==", input.testRunId)
+            .limit(1)
+            .get(),
+        ),
+      )
+    ).filter((snapshot) => !snapshot.empty);
+    if (residue.length > 0) {
+      throw new HttpsError(
+        "internal",
+        "Exact fixture cleanup left tagged development records.",
+      );
     }
 
     logger.info("Cleaned scoped development fixtures", {
       testRunId: input.testRunId,
       deleted,
+      remaining: 0,
     });
-    return { id: input.testRunId, acceptedAt: new Date().toISOString() };
-  },
-);
-
-function verifyPaystackSignature(
-  rawBody: Buffer,
-  signature: string | undefined,
-  secret: string,
-): boolean {
-  if (signature === undefined) {
-    return false;
-  }
-
-  const expected = createHmac("sha512", secret).update(rawBody).digest("hex");
-  const suppliedBuffer = Buffer.from(signature, "utf8");
-  const expectedBuffer = Buffer.from(expected, "utf8");
-  return (
-    suppliedBuffer.length === expectedBuffer.length &&
-    timingSafeEqual(suppliedBuffer, expectedBuffer)
-  );
-}
-
-export const handlePaystackWebhook = onRequest(
-  { region: functionRegion, secrets: [paystackSecret] },
-  async (request, response) => {
-    if (request.method !== "POST") {
-      response.status(405).json({ error: "method_not_allowed" });
-      return;
-    }
-
-    const secret = paystackSecret.value();
-    if (
-      !secret ||
-      !verifyPaystackSignature(
-        request.rawBody,
-        request.header("x-paystack-signature") ?? undefined,
-        secret,
-      )
-    ) {
-      response.status(401).json({ error: "invalid_signature" });
-      return;
-    }
-
-    const parsed = paystackWebhookSchema.safeParse(request.body);
-    if (!parsed.success) {
-      response.status(400).json({ error: "invalid_payload" });
-      return;
-    }
-
-    const payload = parsed.data;
-    if (
-      decidePaystackWebhookAction({
-        event: payload.event,
-        eventAlreadyProcessed: false,
-      }) === "ignore"
-    ) {
-      response.status(200).json({ received: true, orderCreated: false });
-      return;
-    }
-
-    const providerEventId = String(payload.data.id);
-    const reference = payload.data.reference;
-    const eventReference = database
-      .collection("paymentEvents")
-      .doc(`paystack-${providerEventId}`);
-    let orderId: string | null = null;
-
-    try {
-      await database.runTransaction(async (transaction) => {
-        const eventSnapshot = await transaction.get(eventReference);
-        if (eventSnapshot.exists) {
-          const action = decidePaystackWebhookAction({
-            event: payload.event,
-            eventAlreadyProcessed: true,
-          });
-          if (action !== "replay") {
-            throw new HttpsError(
-              "failed-precondition",
-              "Unexpected webhook replay state.",
-            );
-          }
-          const existing = asRecord(eventSnapshot.data());
-          orderId =
-            typeof existing.orderId === "string" ? existing.orderId : null;
-          return;
-        }
-
-        const sessions = await transaction.get(
-          database
-            .collection("checkoutSessions")
-            .where("paystackReference", "==", reference)
-            .limit(1),
-        );
-        if (sessions.empty) {
-          throw new HttpsError(
-            "not-found",
-            "No checkout session matches the verified payment reference.",
-          );
-        }
-
-        const sessionReference = sessions.docs[0]!.ref;
-        const session = asRecord(sessions.docs[0]!.data());
-        const checkoutSessionStatus =
-          typeof session.status === "string" ? session.status : undefined;
-        try {
-          const action = decidePaystackWebhookAction({
-            event: payload.event,
-            eventAlreadyProcessed: false,
-            ...(checkoutSessionStatus === undefined
-              ? {}
-              : { checkoutSessionStatus }),
-          });
-          if (action !== "create_order") {
-            throw new HttpsError(
-              "failed-precondition",
-              "Unexpected webhook processing state.",
-            );
-          }
-        } catch (error) {
-          if (error instanceof AppError) {
-            throw new HttpsError("failed-precondition", error.userMessage);
-          }
-          throw error;
-        }
-
-        const orderReference = database.collection("orders").doc();
-        const orderEventReference = database.collection("orderEvents").doc();
-        const now = FieldValue.serverTimestamp();
-        transaction.create(orderReference, {
-          id: orderReference.id,
-          checkoutSessionId: sessionReference.id,
-          customerId: session.customerId,
-          storeId: session.storeId,
-          lines: session.lines,
-          deliveryAddress: session.deliveryAddress,
-          itemSubtotal: session.itemSubtotal,
-          deliveryFee: session.deliveryFee,
-          serviceFee: session.serviceFee,
-          total: session.total,
-          payment: {
-            status: "paid",
-            provider: "paystack",
-            reference,
-            paidAt: now,
-            refundStatus: "not_requested",
-          },
-          fulfillment: { status: "paid" },
-          assignment: { status: "unassigned", version: 0 },
-          needsAction: { reasons: ["no_driver_assigned"], updatedAt: now },
-          ...(typeof session.testRunId === "string"
-            ? { testRunId: session.testRunId }
-            : {}),
-          createdAt: now,
-          createdBy: "system",
-          updatedAt: now,
-          updatedBy: "system",
-        });
-        transaction.create(orderEventReference, {
-          id: orderEventReference.id,
-          orderId: orderReference.id,
-          actorId: "system",
-          actorRole: "system",
-          eventType: "payment_verified_order_created",
-          nextFulfillmentStatus: "paid",
-          ...(typeof session.testRunId === "string"
-            ? { testRunId: session.testRunId }
-            : {}),
-          createdAt: now,
-          createdBy: "system",
-          updatedAt: now,
-          updatedBy: "system",
-        });
-        transaction.create(eventReference, {
-          id: eventReference.id,
-          checkoutSessionId: sessionReference.id,
-          orderId: orderReference.id,
-          provider: "paystack",
-          providerEventId,
-          reference,
-          status: "paid",
-          receivedAt: now,
-          payloadHash: createHash("sha256")
-            .update(request.rawBody)
-            .digest("hex"),
-          ...(typeof session.testRunId === "string"
-            ? { testRunId: session.testRunId }
-            : {}),
-          createdAt: now,
-          createdBy: "system",
-          updatedAt: now,
-          updatedBy: "system",
-        });
-        transaction.update(sessionReference, {
-          status: "consumed",
-          updatedAt: now,
-          updatedBy: "system",
-        });
-        orderId = orderReference.id;
-      });
-    } catch (error) {
-      if (error instanceof HttpsError && error.code === "already-exists") {
-        response.status(200).json({ received: true, orderCreated: false });
-        return;
-      }
-
-      logger.error("Paystack webhook processing failed", {
-        reference,
-        providerEventId,
-        error,
-      });
-      response.status(500).json({ error: "processing_failed" });
-      return;
-    }
-
-    response
-      .status(200)
-      .json({ received: true, orderCreated: orderId !== null, orderId });
+    return {
+      id: input.testRunId,
+      acceptedAt: new Date().toISOString(),
+      deleted,
+      remaining: 0,
+    };
   },
 );

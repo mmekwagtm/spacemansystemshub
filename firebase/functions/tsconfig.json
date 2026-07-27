@@ -5,6 +5,8 @@
       "@spaceman/app-core": ["../../packages/app-core/src/index.ts"],
       "@spaceman/app-errors": ["../../packages/app-errors/src/index.ts"],
       "@spaceman/app-functions": ["../../packages/app-functions/src/index.ts"],
+      "@spaceman/app-maps": ["../../packages/app-maps/src/index.ts"],
+      "@spaceman/app-types": ["../../packages/app-types/src/index.ts"],
       "@spaceman/app-validation": ["../../packages/app-validation/src/index.ts"]
     },
     "types": ["node"]

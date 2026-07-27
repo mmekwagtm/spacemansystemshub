@@ -31,7 +31,16 @@ export interface DeliveryAddress {
   formattedAddress: string;
   coordinates: Coordinates;
   placeId?: string;
+  countryCode?: "ZA";
+  locality?: string;
   instructions?: string;
+}
+
+export interface DeliveryAddressCandidate {
+  placeId: string;
+  primaryText: string;
+  secondaryText: string;
+  formattedText: string;
 }
 
 export interface RoleScope {
@@ -150,6 +159,54 @@ export interface CheckoutLine {
   total: Money;
 }
 
+export type CheckoutChannel = "customer_web" | "customer_app";
+
+export interface CheckoutAddressSelection {
+  placeId: string;
+  sessionToken: string;
+  label: string;
+  instructions?: string;
+}
+
+export interface CheckoutAddressSnapshot extends DeliveryAddress {
+  placeId: string;
+  countryCode: "ZA";
+  locality: string;
+}
+
+export interface CheckoutRouteSnapshot {
+  provider: "google_routes";
+  distanceMetres: number;
+  durationSeconds: number;
+  calculatedAt: string;
+}
+
+export interface CheckoutStoreSnapshot {
+  id: string;
+  merchantId: string;
+  name: string;
+  address: DeliveryAddress;
+  openForOrders: boolean;
+  minimumOrder: Money;
+}
+
+export interface CheckoutFeeRuleSnapshot {
+  id: string;
+  deliveryZoneId: string;
+  version: number;
+  name: string;
+  deliveryType: "standard";
+  currency: "ZAR";
+  baseFee: Money;
+  includedDistanceMetres: number;
+  perKilometreFee: Money;
+  smallOrderThreshold: Money;
+  smallOrderSurcharge: Money;
+  minimumFee: Money;
+  maximumFee: Money;
+  effectiveFrom: string;
+}
+
 export type CheckoutSessionStatus =
   | "draft"
   | "quoted"
@@ -163,11 +220,18 @@ export type CheckoutSessionStatus =
 
 export interface CheckoutSession extends DocumentMetadata {
   id: string;
+  schemaVersion: 1;
+  channel: CheckoutChannel;
   customerId: string;
   storeId: string;
+  requestHash: string;
+  idempotencyKey: string;
   status: CheckoutSessionStatus;
   lines: CheckoutLine[];
-  deliveryAddress: DeliveryAddress;
+  storeSnapshot: CheckoutStoreSnapshot;
+  deliveryAddress: CheckoutAddressSnapshot;
+  routeSnapshot: CheckoutRouteSnapshot;
+  feeRuleSnapshot: CheckoutFeeRuleSnapshot;
   itemSubtotal: Money;
   deliveryFee: Money;
   serviceFee: Money;
@@ -175,7 +239,13 @@ export interface CheckoutSession extends DocumentMetadata {
   feeRuleId: string;
   quoteExpiresAt: string;
   paystackReference?: string;
+  paystackAuthorizationUrl?: string;
   paymentProvider: "paystack";
+  paymentInitializedAt?: string;
+  paymentLastCheckedAt?: string;
+  paymentFailureReason?: string;
+  orderId?: string;
+  consumedAt?: string;
 }
 
 export interface PaymentState {
@@ -209,11 +279,17 @@ export interface NeedsActionState {
 
 export interface Order extends DocumentMetadata {
   id: string;
+  schemaVersion: 1;
+  channel: CheckoutChannel;
   checkoutSessionId: string;
   customerId: string;
   storeId: string;
+  requestHash: string;
   lines: CheckoutLine[];
-  deliveryAddress: DeliveryAddress;
+  storeSnapshot: CheckoutStoreSnapshot;
+  deliveryAddress: CheckoutAddressSnapshot;
+  routeSnapshot: CheckoutRouteSnapshot;
+  feeRuleSnapshot: CheckoutFeeRuleSnapshot;
   itemSubtotal: Money;
   deliveryFee: Money;
   serviceFee: Money;
@@ -316,11 +392,21 @@ export interface AuditLog extends DocumentMetadata {
 export interface FeeRule extends DocumentMetadata {
   id: string;
   deliveryZoneId: string;
+  version: number;
   name: string;
+  deliveryType: "standard";
   active: boolean;
   currency: "ZAR";
   baseFee: Money;
+  includedDistanceMetres: number;
   perKilometreFee: Money;
+  smallOrderThreshold: Money;
+  smallOrderSurcharge: Money;
+  minimumFee: Money;
+  maximumFee: Money;
+  effectiveFrom: string;
+  supersedesFeeRuleId?: string;
+  notes?: string;
 }
 
 export interface DeliveryZone extends DocumentMetadata {
@@ -328,6 +414,9 @@ export interface DeliveryZone extends DocumentMetadata {
   name: string;
   active: boolean;
   serviceAreaVersion: number;
+  countryCode: "ZA";
+  allowedLocalities: string[];
+  activeFeeRuleId?: string;
 }
 
 export interface PlatformSettings extends DocumentMetadata {
@@ -391,9 +480,75 @@ export interface Settlement extends DocumentMetadata {
 }
 
 export interface CreateCheckoutSessionInput {
+  channel: CheckoutChannel;
+  idempotencyKey: string;
   storeId: string;
   lines: Array<Pick<CheckoutLine, "itemId" | "quantity">>;
-  deliveryAddress: DeliveryAddress;
+  addressSelection: CheckoutAddressSelection;
+  testRunId?: string;
+}
+
+export interface SearchDeliveryAddressesInput {
+  storeId: string;
+  query: string;
+  sessionToken: string;
+}
+
+export interface UpsertDeliveryZoneInput {
+  deliveryZoneId?: string;
+  name: string;
+  active: boolean;
+  countryCode: "ZA";
+  allowedLocalities: string[];
+  testRunId?: string;
+}
+
+export interface PublishDeliveryFeeRuleInput {
+  deliveryZoneId: string;
+  name: string;
+  deliveryType: "standard";
+  baseFee: Money;
+  includedDistanceMetres: number;
+  perKilometreFee: Money;
+  smallOrderThreshold: Money;
+  smallOrderSurcharge: Money;
+  minimumFee: Money;
+  maximumFee: Money;
+  effectiveFrom: string;
+  notes?: string;
+  testRunId?: string;
+}
+
+export interface UpdateCheckoutSettingsInput {
+  customerOrderingEnabled: boolean;
+  mapsQuoteEnabled: boolean;
+  paystackEnabled: boolean;
+  testRunId?: string;
+}
+
+export interface CheckoutQuoteResult {
+  checkoutSession: CheckoutSession;
+}
+
+export interface InitializePaystackPaymentInput {
+  checkoutSessionId: string;
+}
+
+export interface PaystackPaymentAuthorization {
+  checkoutSessionId: string;
+  reference: string;
+  authorizationUrl: string;
+  quoteExpiresAt: string;
+}
+
+export interface VerifyPaystackPaymentInput {
+  checkoutSessionId: string;
+}
+
+export interface PaystackPaymentVerification {
+  checkoutSessionId: string;
+  status: "processing" | "paid" | "failed" | "abandoned";
+  orderId?: string;
 }
 
 export interface FulfillmentTransitionInput {
@@ -491,10 +646,7 @@ export interface UpsertItemInput {
   available?: boolean;
   categoryLabel?: string;
   sortOrder?: number;
-  source?: Extract<
-    CatalogSource,
-    "manual" | "merchant" | "catalog_csv"
-  >;
+  source?: Extract<CatalogSource, "manual" | "merchant" | "catalog_csv">;
   sourceId?: string;
   importBatchId?: string;
   imageAlt?: string;

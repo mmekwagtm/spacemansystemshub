@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import {
+  adminCheckoutService,
   adminIdentityService,
   adminMarketplaceService,
   identityAdminService,
@@ -26,6 +27,7 @@ createRoot(document.getElementById("root")!).render(
               path="*"
               element={
                 <AdminApp
+                  checkoutAdminService={adminCheckoutService}
                   identityAdminService={identityAdminService}
                   identityService={adminIdentityService}
                   marketplaceService={adminMarketplaceService}

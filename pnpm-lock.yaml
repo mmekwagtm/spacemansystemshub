@@ -126,6 +126,9 @@ importers:
       '@spaceman/app-services':
         specifier: workspace:*
         version: link:../../packages/app-services
+      '@spaceman/app-state':
+        specifier: workspace:*
+        version: link:../../packages/app-state
       '@spaceman/app-types':
         specifier: workspace:*
         version: link:../../packages/app-types
@@ -226,6 +229,9 @@ importers:
       '@spaceman/app-services':
         specifier: workspace:*
         version: link:../../packages/app-services
+      '@spaceman/app-state':
+        specifier: workspace:*
+        version: link:../../packages/app-state
       '@spaceman/app-types':
         specifier: workspace:*
         version: link:../../packages/app-types
@@ -534,6 +540,10 @@ importers:
       '@spaceman/app-types':
         specifier: workspace:*
         version: link:../app-types
+    devDependencies:
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.20.1)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.49.0)(yaml@2.9.0)
 
   packages/app-notifications:
     dependencies:
@@ -579,9 +589,16 @@ importers:
 
   packages/app-state:
     dependencies:
+      '@spaceman/app-types':
+        specifier: workspace:*
+        version: link:../app-types
       zustand:
         specifier: ^5.0.5
         version: 5.0.14(@types/react@19.2.17)(react@19.2.3)
+    devDependencies:
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.20.1)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.49.0)(yaml@2.9.0)
 
   packages/app-types:
     dependencies:

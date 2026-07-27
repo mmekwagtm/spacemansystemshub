@@ -4,14 +4,15 @@ import {
   useInfiniteActiveItems,
   useInfiniteActiveStores,
 } from "@spaceman/app-query";
-import type { IdentitySession } from "@spaceman/app-types";
+import type { IdentitySession, Item } from "@spaceman/app-types";
 import { spacemanTokens } from "@spaceman/app-ui";
 import { evaluateIdentityAccess } from "@spaceman/shared/auth";
 import * as Network from "expo-network";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -24,9 +25,11 @@ import {
 } from "react-native";
 
 import {
+  customerCartStore,
   customerIdentityService,
   customerMarketplaceService,
 } from "../src/identity";
+import { CheckoutPanel } from "../src/CheckoutPanel";
 
 const steps = [
   "Browse active stores",
@@ -62,6 +65,11 @@ export default function CustomerHomeScreen() {
     () => items.data?.pages.flatMap((page) => page.records) ?? [],
     [items.data],
   );
+  const cart = useSyncExternalStore(
+    customerCartStore.subscribe,
+    customerCartStore.getState,
+    customerCartStore.getState,
+  );
 
   useEffect(
     () =>
@@ -77,6 +85,10 @@ export default function CustomerHomeScreen() {
       ),
     [],
   );
+
+  useEffect(() => {
+    void customerCartStore.hydrate();
+  }, []);
 
   useEffect(() => {
     const first = storeRecords[0];
@@ -118,12 +130,51 @@ export default function CustomerHomeScreen() {
       ? "Cached catalog — offline"
       : "Catalog unavailable offline"
     : catalogRefreshFailed
-    ? catalogHasData
-      ? "Cached catalog — refresh failed"
-      : "Catalog unavailable"
-    : stores.isFetching || items.isFetching
-      ? "Refreshing catalog…"
-      : "Catalog cached and current";
+      ? catalogHasData
+        ? "Cached catalog — refresh failed"
+        : "Catalog unavailable"
+      : stores.isFetching || items.isFetching
+        ? "Refreshing catalog…"
+        : "Catalog cached and current";
+
+  function addToCart(item: Item) {
+    const store = storeRecords.find((record) => record.id === item.storeId);
+    if (!store || !item.available) return;
+    const input = {
+      store: { id: store.id, name: store.name },
+      item: {
+        itemId: item.id,
+        storeId: item.storeId,
+        name: item.name,
+        unitPrice: item.price,
+        available: item.available,
+      },
+    };
+    const result = customerCartStore.getState().addItem(input);
+    if (result.status === "store_conflict") {
+      Alert.alert(
+        "Replace current cart?",
+        `Your cart contains items from ${result.currentStore.name}. A cart can contain only one store.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Replace cart",
+            style: "destructive",
+            onPress: () => {
+              customerCartStore.getState().replaceWithItem(input);
+              setNotice(`${item.name} added to a new cart.`);
+            },
+          },
+        ],
+      );
+      return;
+    }
+    if (result.status === "checkout_pending") {
+      setError("Check the pending payment before changing this cart.");
+      return;
+    }
+    if (result.status === "added") setNotice(`${item.name} added to cart.`);
+  }
 
   return (
     <KeyboardAvoidingView
@@ -153,10 +204,7 @@ export default function CustomerHomeScreen() {
               color={spacemanTokens.color.brand}
             />
           ) : (
-            <Text
-              accessibilityLiveRegion="polite"
-              style={styles.fresh}
-            >
+            <Text accessibilityLiveRegion="polite" style={styles.fresh}>
               {catalogState}
             </Text>
           )}
@@ -255,6 +303,16 @@ export default function CustomerHomeScreen() {
                   <Text style={styles.cardBody}>
                     {item.available ? "Available" : "Temporarily unavailable"}
                   </Text>
+                  <Button
+                    disabled={!item.available || !cart.hydrated}
+                    label={
+                      cart.lines.some((line) => line.itemId === item.id)
+                        ? "Add another"
+                        : "Add to cart"
+                    }
+                    secondary
+                    onPress={() => addToCart(item)}
+                  />
                 </View>
               </View>
             ))}
@@ -272,6 +330,13 @@ export default function CustomerHomeScreen() {
             ) : null}
           </View>
         ) : null}
+        <CheckoutPanel
+          cartStore={customerCartStore}
+          checkoutAllowed={access.granted}
+          online={!catalogOffline}
+          onRequireAccount={() => setShowAccount(true)}
+          {...(session ? { customerId: session.uid } : {})}
+        />
         {steps.map((step) => (
           <View key={step} style={styles.row}>
             <Text style={styles.dot}>•</Text>

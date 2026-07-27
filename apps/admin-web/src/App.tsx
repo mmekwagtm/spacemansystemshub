@@ -1,6 +1,7 @@
 import { APP_ROLES, type UserStatus } from "@spaceman/app-core";
 import { isAppError, type AppError } from "@spaceman/app-errors";
 import type {
+  CheckoutAdminService,
   IdentityAdminService,
   IdentityService,
   MarketplaceService,
@@ -17,6 +18,9 @@ import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 const AdminMarketplace = lazy(async () => ({
   default: (await import("./MarketplacePanel")).MarketplacePanel,
 }));
+const CheckoutSettings = lazy(async () => ({
+  default: (await import("./CheckoutSettingsPanel")).CheckoutSettingsPanel,
+}));
 
 const operationalAreas = [
   "Users and roles",
@@ -29,6 +33,7 @@ interface AppProps {
   identityService: IdentityService;
   identityAdminService: IdentityAdminService;
   marketplaceService?: MarketplaceService;
+  checkoutAdminService?: CheckoutAdminService;
 }
 
 function messageFor(error: unknown): string {
@@ -56,6 +61,7 @@ export function App({
   identityService,
   identityAdminService,
   marketplaceService,
+  checkoutAdminService,
 }: AppProps) {
   const [session, setSession] = useState<IdentitySession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -359,6 +365,14 @@ export function App({
                 ownerId={session?.uid ?? ""}
                 service={marketplaceService}
               />
+            </Suspense>
+          ) : null}
+          {checkoutAdminService &&
+          (role === "admin" || role === "super_admin") ? (
+            <Suspense
+              fallback={<p role="status">Loading checkout configuration…</p>}
+            >
+              <CheckoutSettings role={role} service={checkoutAdminService} />
             </Suspense>
           ) : null}
         </>

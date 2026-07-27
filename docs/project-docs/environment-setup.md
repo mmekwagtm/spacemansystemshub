@@ -23,19 +23,21 @@ without explicit approval.
 - The Firebase callable transport `roles/run.invoker`/`allUsers` binding is
   owner-approved and applied to exactly the 13 Phase 3 Cloud Run services.
   Each handler still enforces Firebase Auth and canonical role/status/scope.
-- Places API is enabled only for server-side store search/staging. Its
-  development key is API-restricted and stored in Secret Manager as
-  `GOOGLE_MAPS_SERVER_API_KEY`. It is not a client input. External JSON/HTTPS
-  catalog import and its former host-allowlist secret are prohibited and
-  removed.
-- Routes/serviceability Maps APIs, FCM delivery, EAS production channels, and
-  production environment configuration remain later-phase work. Development
-  EAS projects are linked for Customer App and Driver App, with development
-  Android builds using a secret file environment variable named
-  `GOOGLE_SERVICES_JSON`.
-- The Paystack test secret must be rotated before Phase 4 because its original
-  value appeared in diagnostic command output during setup. Never reuse or
-  document that value.
+- The development server key stored as `GOOGLE_MAPS_SERVER_API_KEY` is
+  API-restricted to the Places backend service, Places API (New), and Routes
+  API. It is not a client input. External JSON/HTTPS catalog import and its
+  former host-allowlist secret are prohibited and removed.
+- The nine Phase 4 Functions are active in `africa-south1`.
+  `searchDeliveryAddresses` was redeployed and live-verified on 2026-07-28
+  after enabling Places API (New) and accepting valid predictions without
+  secondary text. Current Rules/indexes still require the final rollout
+  evidence check before Phase 4 acceptance.
+- FCM delivery, EAS production channels, and production configuration remain
+  later-phase work. Development EAS projects are linked for both native apps.
+- Paystack secret version `3` is expected to be the rotated test key, but this
+  must be confirmed without printing it before Phase 4 deployment. Keep
+  version `2` enabled for rollback until version `3` reconciles a successful
+  test transaction.
 
 ## Configuration rules
 
@@ -70,8 +72,10 @@ corepack pnpm dlx eas-cli build --profile development --platform android --wait
 corepack pnpm dlx eas-cli update --branch development --message "<reviewed change>" --environment development --platform android
 ```
 
-For owner-operated native acceptance, build the self-contained internal APK
-from each native app directory:
+During development phases, owner-operated physical-device acceptance uses Expo
+Go after compatibility and Android export checks pass. Self-contained internal
+preview APKs are built only for the final Phase 7 quality-and-launch gate, from
+each native app directory:
 
 ```sh
 source /home/mmekwa/.nvm/nvm.sh
@@ -79,8 +83,8 @@ corepack pnpm dlx eas-cli build --profile preview --platform android --wait
 ```
 
 The preview profile uses the development EAS environment but does not require
-Metro or Expo Go when the installed app launches. Preview APK acceptance is
-documented in `live-test-steps.md`.
+Metro or Expo Go when the installed app launches. It is not a Phase 4
+acceptance requirement.
 
 The EAS project and Firebase file secret must be configured before the build;
 the OTA update cannot repair native build-time configuration such as missing
@@ -109,3 +113,8 @@ The Phase 3 live marketplace script extends that rule to temporary users,
 stores, items, import batches/rows, audit records, and Storage objects. It
 refuses any project/environment other than the named development project and
 must finish with zero residue for its exact random `testRunId`.
+
+The Phase 4 live checkout script additionally covers checkout sessions, orders,
+payment/order events, notifications/outbox, fee rules, and delivery zones. It
+restores the prior singleton platform settings in `finally`, deletes only
+exact tagged records and generated Auth users, and verifies zero residue.

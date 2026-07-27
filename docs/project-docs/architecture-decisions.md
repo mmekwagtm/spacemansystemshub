@@ -53,11 +53,13 @@ collected in V1.
 
 Repository-hosted automation workflows are not part of this project. The
 project owner runs the documented validation, Playwright, Firebase integration,
-and physical-device acceptance on self-contained EAS preview APKs, reviews the
-resulting diff, and creates commits manually. Native unit, compatibility, and
-export checks remain automated locally; device acceptance remains an explicit
-owner-operated gate. Production deployment remains blocked until the complete
-Phase 7 acceptance matrix is reviewed and approved.
+and physical-device acceptance, reviews the resulting diff, and creates commits
+manually. Development phases use Expo compatibility/export checks and Expo Go
+on the physical device. Self-contained EAS preview-APK acceptance is required
+only at the end of Phase 7 as part of final quality and launch. Native unit,
+compatibility, and export checks remain automated locally; device acceptance
+remains an explicit owner-operated gate. Production deployment remains blocked
+until the complete Phase 7 acceptance matrix is reviewed and approved.
 
 ## AD-010: Canonical identity checks and callable ingress
 
@@ -104,3 +106,19 @@ validated JPEG/PNG/WebP content, compressed originals, thumbnails, stable
 metadata, and exact audited orphan cleanup. Google Places in Phase 3 may prefill
 editable store identity/location fields only; Routes, serviceability, distance,
 fees, ETA, and checkout validation remain Phase 4.
+
+## AD-013: South Africa checkout Maps and hosted Paystack
+
+South Africa is not covered by Google Address Validation, so checkout uses
+server-side Places Autocomplete and Place Details for a normalized ZA address,
+then Routes for distance and duration. A configured exact locality allowlist
+defines Mabopane serviceability. Clients receive candidates and immutable quote
+snapshots but never a Maps key or authority to invent serviceability, ETA, or
+fees.
+
+Paystack uses hosted checkout in a browser rather than a client SDK or WebView.
+Initialization derives email, amount, currency, reference, and callback on the
+server. The callback is informational only. Customer verification and signed
+webhooks use one transactional reconciler so retries and races converge on one
+paid order. Rollback disables new checkout/payment flags while leaving the
+webhook available for already-initialized transactions.

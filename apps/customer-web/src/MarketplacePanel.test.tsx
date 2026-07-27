@@ -149,11 +149,10 @@ describe("Customer marketplace", () => {
     expect(
       await screen.findByText("Catalog cached and current"),
     ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Refresh catalog" }),
-    );
-    await waitFor(() =>
-      expect(failingService.listActiveStores).toHaveBeenCalledTimes(2),
+    fireEvent.click(screen.getByRole("button", { name: "Refresh catalog" }));
+    await waitFor(
+      () => expect(failingService.listActiveStores).toHaveBeenCalledTimes(2),
+      { timeout: 10_000 },
     );
     expect(
       await screen.findByText(

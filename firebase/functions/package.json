@@ -13,6 +13,7 @@
     "bootstrap:super-admin": "node scripts/bootstrap-super-admin.mjs",
     "test": "vitest run",
     "test:identity:live": "node scripts/live-identity.mjs",
+    "test:checkout:live": "node scripts/live-checkout.mjs",
     "test:marketplace:live": "node scripts/live-marketplace.mjs",
     "typecheck": "tsc --noEmit"
   },

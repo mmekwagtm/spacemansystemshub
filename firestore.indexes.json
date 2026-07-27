@@ -18,6 +18,14 @@
       ]
     },
     {
+      "collectionGroup": "feeRules",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deliveryZoneId", "order": "ASCENDING" },
+        { "fieldPath": "version", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "driverAssignments",
       "queryScope": "COLLECTION",
       "fields": [

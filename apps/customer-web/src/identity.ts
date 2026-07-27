@@ -5,10 +5,12 @@ import {
   createFirebaseClient,
 } from "@spaceman/app-firebase";
 import {
+  createCheckoutService,
   createFirestoreRepositories,
   createIdentityService,
   createMarketplaceService,
 } from "@spaceman/app-services";
+import { createCartStore } from "@spaceman/app-state";
 
 const client = createFirebaseClient(
   parseViteFirebaseConfig(import.meta.env),
@@ -16,12 +18,24 @@ const client = createFirebaseClient(
 );
 
 const callable = createCallableGateway(client);
+const repositories = createFirestoreRepositories(client.firestore);
 
 export const customerIdentityService = createIdentityService(
   createFirebaseAuthGateway(client),
   callable,
 );
 export const customerMarketplaceService = createMarketplaceService(
-  createFirestoreRepositories(client.firestore),
+  repositories,
   callable,
 );
+export const customerCheckoutService = createCheckoutService(
+  repositories,
+  callable,
+);
+export const customerCartStore = createCartStore({
+  storage: {
+    getItem: (key) => window.localStorage.getItem(key),
+    removeItem: (key) => window.localStorage.removeItem(key),
+    setItem: (key, value) => window.localStorage.setItem(key, value),
+  },
+});

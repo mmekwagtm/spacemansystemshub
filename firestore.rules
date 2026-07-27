@@ -128,6 +128,21 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /deliveryZones/{deliveryZoneId} {
+      allow get, list: if platformStaff();
+      allow write: if false;
+    }
+
+    match /feeRules/{feeRuleId} {
+      allow get, list: if platformStaff();
+      allow write: if false;
+    }
+
+    match /platformSettings/{settingsId} {
+      allow get, list: if platformStaff();
+      allow write: if false;
+    }
+
     match /notifications/{notificationId} {
       allow get, list: if active() && resource.data.recipientId == request.auth.uid;
       allow write: if false;

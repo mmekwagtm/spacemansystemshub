@@ -30,9 +30,13 @@ export const TRUSTED_COMMANDS = [
   "commitCatalogImport",
   "cancelCatalogImport",
   "cleanupCatalogMedia",
+  "searchDeliveryAddresses",
+  "upsertDeliveryZone",
+  "publishDeliveryFeeRule",
+  "updateCheckoutSettings",
   "createCheckoutSession",
+  "initializePaystackPayment",
   "verifyPaystackPayment",
-  "handlePaystackWebhook",
   "transitionMerchantFulfillment",
   "assignDriver",
   "updateDriverLocation",
@@ -63,9 +67,13 @@ const commandRoles: Readonly<Record<TrustedCommand, readonly AppRole[]>> = {
   commitCatalogImport: ["admin", "super_admin"],
   cancelCatalogImport: ["admin", "super_admin"],
   cleanupCatalogMedia: ["merchant", "admin", "super_admin"],
+  searchDeliveryAddresses: ["customer"],
+  upsertDeliveryZone: ["admin", "super_admin"],
+  publishDeliveryFeeRule: ["admin", "super_admin"],
+  updateCheckoutSettings: ["super_admin"],
   createCheckoutSession: ["customer"],
-  verifyPaystackPayment: ["super_admin"],
-  handlePaystackWebhook: ["super_admin"],
+  initializePaystackPayment: ["customer"],
+  verifyPaystackPayment: ["customer"],
   transitionMerchantFulfillment: ["merchant", "admin", "super_admin"],
   assignDriver: ["admin", "super_admin"],
   updateDriverLocation: ["driver"],
@@ -162,9 +170,7 @@ export function assertStoreScope(
 }
 
 export type MerchantStoreSubmissionAction =
-  | "create"
-  | "update_pending"
-  | "resubmit_rejected";
+  "create" | "update_pending" | "resubmit_rejected";
 
 export function decideMerchantStoreSubmissionAction(input: {
   exists: boolean;
@@ -264,6 +270,198 @@ export function decidePaystackWebhookAction(input: {
   }
 
   return "create_order";
+}
+
+export function stableCheckoutSessionId(
+  customerId: string,
+  idempotencyKey: string,
+): string {
+  const value = `${customerId}:${idempotencyKey}`;
+  let first = 2_166_136_261;
+  let second = 2_166_136_261 ^ 0x9e3779b9;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    first = Math.imul(first ^ code, 16_777_619);
+    second = Math.imul(second ^ (code + index), 16_777_619);
+  }
+  return `checkout-${(first >>> 0).toString(16).padStart(8, "0")}${(second >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+export function stablePaystackReference(checkoutSessionId: string): string {
+  return `spc_${checkoutSessionId}`;
+}
+
+export function assertQuoteFresh(
+  quoteExpiresAt: string,
+  now: Date = new Date(),
+): void {
+  const expiresAt = Date.parse(quoteExpiresAt);
+  if (!Number.isFinite(expiresAt) || expiresAt <= now.getTime()) {
+    throw new AppError({
+      code: "precondition_failed",
+      source: "app-functions/checkout-expiry",
+      message: "The checkout quote is missing, invalid, or expired.",
+      userMessage: "Your delivery quote expired. Recalculate it before paying.",
+    });
+  }
+}
+
+export type PaystackReconciliationStatus =
+  "processing" | "paid" | "failed" | "abandoned";
+
+export function classifyPaystackStatus(
+  status: string,
+): PaystackReconciliationStatus {
+  const normalized = status.trim().toLocaleLowerCase("en-ZA");
+  if (normalized === "success") return "paid";
+  if (normalized === "failed" || normalized === "reversed") return "failed";
+  if (normalized === "abandoned" || normalized === "cancelled")
+    return "abandoned";
+  return "processing";
+}
+
+export function assertPaystackVerification(input: {
+  expectedReference: string;
+  expectedAmountMinor: number;
+  expectedCurrency: "ZAR";
+  providerReference: unknown;
+  providerAmountMinor: unknown;
+  providerCurrency: unknown;
+  providerStatus: unknown;
+}): PaystackReconciliationStatus {
+  if (
+    input.providerReference !== input.expectedReference ||
+    input.providerAmountMinor !== input.expectedAmountMinor ||
+    input.providerCurrency !== input.expectedCurrency ||
+    typeof input.providerStatus !== "string"
+  ) {
+    throw new AppError({
+      code: "precondition_failed",
+      source: "app-functions/paystack-verification",
+      message:
+        "Paystack verification did not match the checkout reference, amount, currency, or status.",
+      userMessage:
+        "We could not safely match this payment to your checkout. No order was created.",
+    });
+  }
+  return classifyPaystackStatus(input.providerStatus);
+}
+
+export function requirePaystackAuthorizationUrl(value: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new AppError({
+      code: "provider_unavailable",
+      source: "app-functions/paystack-initialize",
+      message: "Paystack returned an invalid authorization URL.",
+      userMessage: "Secure payment could not be opened. Please try again.",
+    });
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.hostname.toLocaleLowerCase("en-ZA") !== "checkout.paystack.com"
+  ) {
+    throw new AppError({
+      code: "provider_unavailable",
+      source: "app-functions/paystack-initialize",
+      message: "Paystack returned an unapproved authorization host.",
+      userMessage: "Secure payment could not be opened. Please try again.",
+    });
+  }
+  return parsed.toString();
+}
+
+export function requirePaystackSecretForEnvironment(
+  secret: string,
+  environment: string | undefined,
+): string {
+  if (secret.length === 0) {
+    throw new AppError({
+      code: "precondition_failed",
+      source: "app-functions/paystack-secret",
+      message: "The Paystack secret is not configured.",
+      userMessage: "Payments are not configured. Please try again later.",
+    });
+  }
+  if (environment === "development" && !secret.startsWith("sk_test_")) {
+    throw new AppError({
+      code: "precondition_failed",
+      source: "app-functions/paystack-secret",
+      message: "Development rejects non-test Paystack credentials.",
+      userMessage: "Test payments are not safely configured.",
+    });
+  }
+  return secret;
+}
+
+export interface StoreOpeningPeriod {
+  day: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  closed: boolean;
+  opensAt?: string;
+  closesAt?: string;
+}
+
+function localDayAndMinute(now: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value;
+  const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(
+    value("weekday") ?? "",
+  );
+  const hour = Number(value("hour"));
+  const minute = Number(value("minute"));
+  if (day < 0 || !Number.isInteger(hour) || !Number.isInteger(minute)) {
+    throw new AppError({
+      code: "precondition_failed",
+      source: "app-functions/store-hours",
+      message: "The store opening-hours clock could not be evaluated.",
+      userMessage: "Store hours could not be confirmed. Please try again.",
+    });
+  }
+  return { day, minuteOfDay: hour * 60 + minute };
+}
+
+function clockMinute(value: string | undefined): number | null {
+  if (!value) return null;
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+  if (!match?.[1] || !match[2]) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+export function isStoreOpenAt(
+  periods: readonly StoreOpeningPeriod[],
+  now: Date = new Date(),
+  timeZone = "Africa/Johannesburg",
+): boolean {
+  const local = localDayAndMinute(now, timeZone);
+  const today = periods.find((period) => period.day === local.day);
+  const previous = periods.find((period) => period.day === (local.day + 6) % 7);
+  const isOpenFor = (
+    period: StoreOpeningPeriod | undefined,
+    previousDay: boolean,
+  ) => {
+    if (!period || period.closed) return false;
+    const opens = clockMinute(period.opensAt);
+    const closes = clockMinute(period.closesAt);
+    if (opens === null || closes === null || opens === closes) return false;
+    if (opens < closes) {
+      return (
+        !previousDay && local.minuteOfDay >= opens && local.minuteOfDay < closes
+      );
+    }
+    return previousDay
+      ? local.minuteOfDay < closes
+      : local.minuteOfDay >= opens;
+  };
+  return isOpenFor(today, false) || isOpenFor(previous, true);
 }
 
 export function assertForegroundLocationEligibility(

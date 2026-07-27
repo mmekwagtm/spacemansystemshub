@@ -37,4 +37,29 @@ describe("customer app foundation", () => {
     expect(source).toContain("QueryClientProvider");
     expect(source).toContain("createSpacemanQueryClient");
   });
+
+  it("wires the persisted one-store cart and native hosted-payment lifecycle", () => {
+    const screenSource = readFileSync(
+      resolve(process.cwd(), "app/index.tsx"),
+      "utf8",
+    );
+    const checkoutSource = readFileSync(
+      resolve(process.cwd(), "src/CheckoutPanel.tsx"),
+      "utf8",
+    );
+
+    expect(screenSource).toContain("customerCartStore.hydrate()");
+    expect(screenSource).toContain("replaceWithItem(input)");
+    expect(screenSource).toContain("Temporarily unavailable");
+    expect(checkoutSource).toContain('channel: "customer_app"');
+    expect(checkoutSource).toContain("Powered by Google");
+    expect(checkoutSource).toContain("Linking.openURL");
+    expect(checkoutSource).toContain('state === "active"');
+    expect(checkoutSource).toContain("Check payment");
+    expect(checkoutSource).toContain("useCustomerOrders");
+    expect(checkoutSource).toContain("Recent orders");
+    expect(checkoutSource).toContain(
+      "Connect to the internet before requesting a delivery quote.",
+    );
+  });
 });

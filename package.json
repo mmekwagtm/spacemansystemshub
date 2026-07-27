@@ -13,6 +13,7 @@
     "docs:check": "node tools/scripts/check-docs.mjs",
     "lint": "corepack pnpm -r --if-present run lint",
     "test": "corepack pnpm -r --if-present run test",
+    "test:web:e2e:phase4": "node tools/scripts/run-phase4-playwright.mjs",
     "test:web:e2e": "corepack pnpm --filter @spaceman/admin-web build && corepack pnpm --filter @spaceman/merchant-web build && corepack pnpm --filter @spaceman/customer-web build && playwright test",
     "typecheck": "corepack pnpm -r --if-present run typecheck",
     "validate": "corepack pnpm docs:check && corepack pnpm typecheck && corepack pnpm lint && corepack pnpm test && corepack pnpm build"

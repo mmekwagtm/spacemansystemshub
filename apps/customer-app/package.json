@@ -22,6 +22,7 @@
     "@spaceman/app-maps": "workspace:*",
     "@spaceman/app-query": "workspace:*",
     "@spaceman/app-services": "workspace:*",
+    "@spaceman/app-state": "workspace:*",
     "@spaceman/app-types": "workspace:*",
     "@spaceman/app-ui": "workspace:*",
     "@spaceman/shared": "workspace:*",

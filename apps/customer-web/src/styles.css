@@ -120,6 +120,60 @@ button.text-button {
   background: transparent;
   color: #176b87;
 }
+.checkout-panel {
+  background: #eef6f8;
+  border: 1px solid #b8d3dc;
+  border-radius: 12px;
+  display: grid;
+  gap: 16px;
+  margin: 28px 0;
+  padding: 24px;
+}
+.cart-lines {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cart-lines li,
+.quantity-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+button.compact {
+  padding: 5px 10px;
+}
+.checkout-fields,
+.quote-card {
+  display: grid;
+  gap: 12px;
+}
+.address-results {
+  display: grid;
+  gap: 8px;
+}
+button.address-option {
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid #aebdc4;
+  color: #10202b;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+button.address-option.selected {
+  border-color: #176b87;
+  box-shadow: 0 0 0 2px #b8d3dc;
+}
+.quote-card {
+  background: #fff;
+  border: 1px solid #d8e1e5;
+  border-radius: 10px;
+  padding: 18px;
+}
 .actions {
   display: flex;
   flex-wrap: wrap;

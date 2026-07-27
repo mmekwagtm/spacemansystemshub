@@ -1,9 +1,9 @@
 # API Cost Control
 
-The Phase 3 development backend connects Firebase and a restricted Places API
-adapter for marketplace testing. Routes, distance, fees, checkout Maps, and
-payment providers remain disconnected. All live Phase 3 calls use the shared
-real development Firebase project and controlled development credentials.
+The accepted Phase 3 development backend connects Firebase and a restricted
+Places API adapter. Phase 4 source adds server-only Places address resolution,
+one Routes calculation per authoritative quote, and hosted Paystack; those
+changes remain undeployed until owner rollout.
 
 ## Maps
 
@@ -15,6 +15,19 @@ provider errors.
 Checkout fails closed when serviceability, distance, or the delivery fee cannot
 be authoritatively calculated. Driver location is foreground-only in V1 and is
 throttled by movement, time, and active assignment state.
+
+Phase 4 address autocomplete begins after three characters, is debounced by
+350 ms, uses one Google session token per selection flow, requests at most five
+ZA results, and applies explicit field masks. Place Details requests only ID,
+formatted address, coordinates, and address components. Routes requests only
+distance and duration, uses a ten-second provider timeout, and runs once per
+new quote. Idempotency replays return the existing checkout rather than
+repeating provider calls.
+
+Paystack is initialized and verified only by trusted Functions. Clients poll
+only on return/focus/resume or an explicit user action; no background payment
+polling loop is used. The fixed return page has no provider verification or
+write side effect.
 
 Phase 3 Google Places calls are server-only, use field masks, and stage editable
 store candidates rather than publishing them. CSV import is capped at 400

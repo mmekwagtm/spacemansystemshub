@@ -164,11 +164,12 @@ privileged dev-only cleanup command may remove records tagged with that exact
 run ID. Never run broad collection cleanup.
 
 Use Vitest and Testing Library for shared/web code, Jest/Expo for native code,
-and Playwright for web E2E. Native acceptance uses Expo compatibility/export
-checks plus owner-operated physical-device testing on self-contained EAS
-preview APKs. Testing, commits, and deployments are manual. A production
-deployment still requires an explicit production acceptance review and
-approval.
+and Playwright for web E2E. Development-phase native acceptance uses Expo
+compatibility/export checks plus owner-operated Expo Go physical-device
+testing. Self-contained EAS preview-APK acceptance is deferred to the final
+Phase 7 quality-and-launch gate. Testing, commits, and deployments are manual.
+A production deployment still requires an explicit production acceptance
+review and approval.
 
 ## 8. Working Style and Documentation
 

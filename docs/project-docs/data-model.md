@@ -2,19 +2,19 @@
 
 ## Root collections
 
-| Collection | Primary responsibility |
-| --- | --- |
-| `users` | Profile, canonical role/status, and role-specific scope. |
-| `stores` / `items` | Marketplace identity, availability, and mutable catalog. |
-| `orders` | Verified-payment transaction snapshot and operational fulfillment truth. |
-| `checkoutSessions` | Expiring quotes, quote inputs, idempotency, and provider references before payment. |
-| `paymentEvents` | Signed Paystack evidence and idempotency history. |
-| `orderEvents` | Append-only lifecycle/history evidence. |
-| `driverAssignments` / `driverLocations` | Assignment projection/version and active-delivery location projection. |
-| `notifications` / `notificationOutbox` | Recipient-facing records and reliable delivery intent. |
-| `activities` / `auditLogs` | Human work queue and immutable privileged-command evidence. |
-| `feeRules` / `deliveryZones` / `platformSettings` | Versioned Mabopane pricing, serviceability, and configuration. |
-| `importBatches` / `settlements` | Reviewed catalog imports and financial settlement projection. |
+| Collection                                        | Primary responsibility                                                              |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `users`                                           | Profile, canonical role/status, and role-specific scope.                            |
+| `stores` / `items`                                | Marketplace identity, availability, and mutable catalog.                            |
+| `orders`                                          | Verified-payment transaction snapshot and operational fulfillment truth.            |
+| `checkoutSessions`                                | Expiring quotes, quote inputs, idempotency, and provider references before payment. |
+| `paymentEvents`                                   | Signed Paystack evidence and idempotency history.                                   |
+| `orderEvents`                                     | Append-only lifecycle/history evidence.                                             |
+| `driverAssignments` / `driverLocations`           | Assignment projection/version and active-delivery location projection.              |
+| `notifications` / `notificationOutbox`            | Recipient-facing records and reliable delivery intent.                              |
+| `activities` / `auditLogs`                        | Human work queue and immutable privileged-command evidence.                         |
+| `feeRules` / `deliveryZones` / `platformSettings` | Versioned Mabopane pricing, serviceability, and configuration.                      |
+| `importBatches` / `settlements`                   | Reviewed catalog imports and financial settlement projection.                       |
 
 ## Order contract
 
@@ -83,3 +83,29 @@ approval, ownership, protected location/scope, status, and retirement. A
 canonical pending merchant may create only their own draft onboarding record;
 an active merchant may update only explicitly permitted fields for an assigned
 store.
+
+## Phase 4 checkout contract
+
+`deliveryZones/{zoneId}` defines an active ZA locality allowlist,
+`serviceAreaVersion`, and `activeFeeRuleId`. `feeRules/{feeRuleId}` is an
+immutable version containing the base fee, included metres, per-kilometre
+charge, small-order threshold/surcharge, minimum/maximum clamp, effective
+timestamp, and supersession reference.
+
+`platformSettings/default` holds independent
+`customerOrderingEnabled`, `mapsQuoteEnabled`, and `paystackEnabled` switches.
+Only a super administrator may change those switches. New payment
+initialization fails closed until all required flags and delivery configuration
+are valid.
+
+`checkoutSessions/{checkoutId}` uses schema version `1` and stores the customer
+channel, request hash, idempotency key, authoritative lines, immutable store,
+address, route, and fee-rule snapshots, ten-minute expiry, Paystack reference,
+status, and resulting order ID. A deterministic customer/idempotency-key pair
+maps to one checkout ID; reusing the key with different input is rejected.
+
+Verified payment creates `orders/{checkoutId}` exactly once in the same
+transaction that records payment/order/audit evidence, merchant notification
+intent, and checkout consumption. The order uses the quote snapshots rather
+than mutable catalog records. Failed, abandoned, mismatched, or still-pending
+payment evidence never creates an order.

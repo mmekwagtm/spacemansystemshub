@@ -6,15 +6,22 @@ import {
   assertCatalogMediaScope,
   assertForegroundLocationEligibility,
   assertFulfillmentTransition,
+  assertPaystackVerification,
+  assertQuoteFresh,
   assertRefundReviewAllowed,
   assertStoreScope,
   assertTrustedCommandAccess,
   assertUserManagementScope,
   assertUserStatusTransition,
+  isStoreOpenAt,
+  requirePaystackAuthorizationUrl,
+  requirePaystackSecretForEnvironment,
   decideMerchantStoreSubmissionAction,
   decideCatalogImportCommit,
   decidePaystackWebhookAction,
   stableCatalogImportItemId,
+  stableCheckoutSessionId,
+  stablePaystackReference,
 } from "./index";
 
 describe("trusted command policy", () => {
@@ -201,5 +208,83 @@ describe("trusted command policy", () => {
     expect(() =>
       assertAccountArchiveTarget("admin-1", "customer-1"),
     ).not.toThrow();
+  });
+});
+
+describe("Phase 4 checkout and payment invariants", () => {
+  it("uses stable checkout and provider references", () => {
+    const first = stableCheckoutSessionId("customer", "key_1234567890123456");
+    const replay = stableCheckoutSessionId("customer", "key_1234567890123456");
+    expect(replay).toBe(first);
+    expect(stablePaystackReference(first)).toBe(`spc_${first}`);
+  });
+
+  it("rejects expired quotes", () => {
+    expect(() =>
+      assertQuoteFresh(
+        "2026-07-26T10:00:00.000Z",
+        new Date("2026-07-26T10:00:01.000Z"),
+      ),
+    ).toThrow("expired");
+  });
+
+  it("verifies Paystack reference, amount, currency and status", () => {
+    expect(
+      assertPaystackVerification({
+        expectedReference: "spc_checkout",
+        expectedAmountMinor: 12_345,
+        expectedCurrency: "ZAR",
+        providerReference: "spc_checkout",
+        providerAmountMinor: 12_345,
+        providerCurrency: "ZAR",
+        providerStatus: "success",
+      }),
+    ).toBe("paid");
+    expect(() =>
+      assertPaystackVerification({
+        expectedReference: "spc_checkout",
+        expectedAmountMinor: 12_345,
+        expectedCurrency: "ZAR",
+        providerReference: "spc_checkout",
+        providerAmountMinor: 12_344,
+        providerCurrency: "ZAR",
+        providerStatus: "success",
+      }),
+    ).toThrow("did not match");
+  });
+
+  it("accepts only the hosted Paystack checkout host", () => {
+    expect(
+      requirePaystackAuthorizationUrl(
+        "https://checkout.paystack.com/secure-token",
+      ),
+    ).toContain("checkout.paystack.com");
+    expect(() =>
+      requirePaystackAuthorizationUrl("https://example.com/phish"),
+    ).toThrow("unapproved");
+  });
+
+  it("rejects live Paystack keys in development without exposing the key", () => {
+    expect(() =>
+      requirePaystackSecretForEnvironment("sk_live_redacted", "development"),
+    ).toThrow("rejects non-test");
+    expect(
+      requirePaystackSecretForEnvironment("sk_test_redacted", "development"),
+    ).toBe("sk_test_redacted");
+  });
+
+  it("evaluates normal and overnight Johannesburg opening hours", () => {
+    expect(
+      isStoreOpenAt(
+        [{ day: 0, closed: false, opensAt: "08:00", closesAt: "18:00" }],
+        new Date("2026-07-26T10:00:00.000Z"),
+      ),
+    ).toBe(true);
+    expect(
+      isStoreOpenAt(
+        [{ day: 6, closed: false, opensAt: "20:00", closesAt: "02:00" }],
+        new Date("2026-07-25T23:30:00.000Z"),
+      ),
+    ).toBe(true);
   });
 });

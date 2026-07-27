@@ -3,7 +3,11 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { normalizeCatalogPageRequest, normalizeCatalogSearch } from "./index";
+import {
+  normalizeCatalogPageRequest,
+  normalizeCatalogSearch,
+  normalizeFirestoreValue,
+} from "./index";
 
 describe("catalog pagination", () => {
   it("normalizes search text and clamps page size to the public maximum", () => {
@@ -19,6 +23,23 @@ describe("catalog pagination", () => {
   it("uses a safe default and never permits an empty page", () => {
     expect(normalizeCatalogPageRequest().limit).toBe(20);
     expect(normalizeCatalogPageRequest({ limit: 0 }).limit).toBe(1);
+  });
+
+  it("normalizes nested checkout and payment timestamps", () => {
+    const timestamp = {
+      toDate: () => new Date("2026-07-26T12:34:56.000Z"),
+    };
+    expect(
+      normalizeFirestoreValue({
+        createdAt: timestamp,
+        payment: { paidAt: timestamp },
+        events: [{ capturedAt: timestamp }],
+      }),
+    ).toEqual({
+      createdAt: "2026-07-26T12:34:56.000Z",
+      payment: { paidAt: "2026-07-26T12:34:56.000Z" },
+      events: [{ capturedAt: "2026-07-26T12:34:56.000Z" }],
+    });
   });
 
   it("keeps every bounded marketplace query backed by an explicit index", () => {
@@ -51,6 +72,8 @@ describe("catalog pagination", () => {
       "items:storeId,status,categoryLabel,searchName,__name__",
       "items:storeId,categoryLabel,searchName,__name__",
       "rows:valid,rowNumber,__name__",
+      "orders:customerId,createdAt",
+      "feeRules:deliveryZoneId,version",
     ]) {
       expect(signatures.has(signature), `missing ${signature}`).toBe(true);
     }

@@ -7,6 +7,8 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import {
+  customerCartStore,
+  customerCheckoutService,
   customerIdentityService,
   customerMarketplaceService,
 } from "./identity";
@@ -27,8 +29,16 @@ createRoot(document.getElementById("root")!).render(
               path="*"
               element={
                 <CustomerApp
+                  cartStore={customerCartStore}
+                  checkoutService={customerCheckoutService}
                   identityService={customerIdentityService}
                   marketplaceService={customerMarketplaceService}
+                  {...(import.meta.env.VITE_PHASE4_TEST_RUN_ID
+                    ? {
+                        checkoutTestRunId: import.meta.env
+                          .VITE_PHASE4_TEST_RUN_ID,
+                      }
+                    : {})}
                 />
               }
             />
