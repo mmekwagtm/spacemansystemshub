@@ -186,3 +186,22 @@ After changes, report created, changed, and approved-deleted files; commands
 with their required directory; validation results; remaining placeholders; and
 the next safest step. Run targeted checks first, then workspace typecheck,
 lint, test, and build where available. Never claim a failed check passed.
+
+## 9. Documentation Rules
+
+Keep docs updated when changing:
+
+* architecture
+* setup
+* schema
+* sync strategy
+* Firebase rules
+* maps/API usage
+* errors
+* deployment
+* package responsibilities
+* dont change `docs/architecture-docs/`,
+
+Docs must match the real implementation.
+
+Do not let docs describe files, scripts, packages, or behavior that do not exist.

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import {
   isAppRole,
@@ -13,8 +13,10 @@ import {
   assertTrustedCommandAccess,
   decideMerchantStoreSubmissionAction,
   decideCatalogImportCommit,
+  hasUsableOpeningHours,
   stableCatalogImportItemId,
 } from "@spaceman/app-functions";
+import { ProviderRequestGate } from "@spaceman/app-maps";
 import {
   cancelCatalogImportInputSchema,
   cleanupCatalogMediaInputSchema,
@@ -44,6 +46,8 @@ import { logger } from "firebase-functions";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 
+import { jsonProviderGateway } from "./provider-gateway.js";
+
 if (getApps().length === 0) initializeApp();
 
 const database = getFirestore();
@@ -51,6 +55,10 @@ const authentication = getAuth();
 const storage = getStorage();
 const functionRegion = process.env.SPACEMAN_FUNCTIONS_REGION ?? "africa-south1";
 const googleMapsServerApiKey = defineSecret("GOOGLE_MAPS_SERVER_API_KEY");
+const marketplacePlacesGate = new ProviderRequestGate({
+  limit: 30, windowMs: 60_000, cacheTtlMs: 20_000,
+  onDecision: (decision) => logger.info("Marketplace Places gate", { decision }),
+});
 
 type Actor = {
   uid: string;
@@ -404,19 +412,24 @@ async function preparePublishedMedia(
       : sourceType === "image/png"
         ? "png"
         : "webp";
-  const destinationPrefix = `catalog/${storeId}/published/${targetType}/${targetId}/${assetId}`;
+  const destinationPrefix = `catalog/${storeId}/published/${targetType}/${targetId}/${assetId}-${randomUUID()}`;
   const sourcePath = `${destinationPrefix}/source.${extension}`;
   const thumbnailPath = `${destinationPrefix}/thumbnail.${extension}`;
   const publishedSource = bucket.file(sourcePath);
   const publishedThumbnail = bucket.file(thumbnailPath);
-  await Promise.all([
-    sourceFile.copy(publishedSource),
-    thumbnailFile.copy(publishedThumbnail),
-  ]);
-  const [sourceUrl, thumbnailUrl] = await Promise.all([
-    getDownloadURL(publishedSource),
-    getDownloadURL(publishedThumbnail),
-  ]);
+  let sourceUrl: string;
+  let thumbnailUrl: string;
+  try {
+    await sourceFile.copy(publishedSource);
+    await thumbnailFile.copy(publishedThumbnail);
+    [sourceUrl, thumbnailUrl] = await Promise.all([
+      getDownloadURL(publishedSource),
+      getDownloadURL(publishedThumbnail),
+    ]);
+  } catch (error) {
+    await cleanupCreatedMedia([sourcePath, thumbnailPath]);
+    throw error;
+  }
   const replacedPaths = publishedMediaPaths(previousMedia, storeId);
   return {
     media: {
@@ -445,6 +458,49 @@ async function deleteExactMedia(paths: [string, string] | undefined) {
   );
 }
 
+async function cleanupCreatedMedia(paths: [string, string] | undefined) {
+  try {
+    await deleteExactMedia(paths);
+  } catch (error) {
+    logger.warn("Incomplete published catalog media cleanup failed", {
+      error,
+      paths,
+    });
+  }
+}
+
+async function prepareStoreMedia(
+  actor: Actor,
+  storeId: string,
+  card: CatalogMediaInput | undefined,
+  hero: CatalogMediaInput | undefined,
+  previousCard?: unknown,
+  previousHero?: unknown,
+): Promise<[PreparedMedia, PreparedMedia]> {
+  const cardMedia = await preparePublishedMedia(
+    card,
+    actor,
+    storeId,
+    "store-card",
+    storeId,
+    previousCard,
+  );
+  try {
+    const heroMedia = await preparePublishedMedia(
+      hero,
+      actor,
+      storeId,
+      "store-hero",
+      storeId,
+      previousHero,
+    );
+    return [cardMedia, heroMedia];
+  } catch (error) {
+    await cleanupCreatedMedia(cardMedia.createdPaths);
+    throw error;
+  }
+}
+
 async function writeWithPublishedMedia(
   prepared: PreparedMedia[],
   write: () => Promise<void>,
@@ -453,7 +509,7 @@ async function writeWithPublishedMedia(
     await write();
   } catch (error) {
     await Promise.all(
-      prepared.map((entry) => deleteExactMedia(entry.createdPaths)),
+      prepared.map((entry) => cleanupCreatedMedia(entry.createdPaths)),
     );
     throw error;
   }
@@ -512,6 +568,11 @@ export const upsertStore = onCall(
     const actor = await requireActor(request);
     requireCommand(actor, "upsertStore");
     const input = parseInput(upsertStoreInputSchema, request.data);
+    if (input.status === "active" && !hasUsableOpeningHours(input.openingHours))
+      throw new HttpsError(
+        "failed-precondition",
+        "An active store requires usable opening hours.",
+      );
     const storeReference =
       input.storeId === undefined
         ? database.collection("stores").doc()
@@ -520,20 +581,12 @@ export const upsertStore = onCall(
     const existingStore = existingSnapshot.exists
       ? asRecord(existingSnapshot.data())
       : {};
-    const cardMedia = await preparePublishedMedia(
+    const [cardMedia, heroMedia] = await prepareStoreMedia(
+      actor,
+      storeReference.id,
       input.cardMedia,
-      actor,
-      storeReference.id,
-      "store-card",
-      storeReference.id,
-      existingStore.cardMedia,
-    );
-    const heroMedia = await preparePublishedMedia(
       input.heroMedia,
-      actor,
-      storeReference.id,
-      "store-hero",
-      storeReference.id,
+      existingStore.cardMedia,
       existingStore.heroMedia,
     );
     const auditReference = database.collection("auditLogs").doc();
@@ -598,20 +651,12 @@ export const submitMerchantStore = onCall(
       ? asRecord(existingSnapshot.data())
       : {};
     merchantSubmissionAction(actor, existingSnapshot.exists, existingStore);
-    const cardMedia = await preparePublishedMedia(
+    const [cardMedia, heroMedia] = await prepareStoreMedia(
+      actor,
+      storeReference.id,
       input.cardMedia,
-      actor,
-      storeReference.id,
-      "store-card",
-      storeReference.id,
-      existingStore.cardMedia,
-    );
-    const heroMedia = await preparePublishedMedia(
       input.heroMedia,
-      actor,
-      storeReference.id,
-      "store-hero",
-      storeReference.id,
+      existingStore.cardMedia,
       existingStore.heroMedia,
     );
     const auditReference = database.collection("auditLogs").doc();
@@ -739,6 +784,11 @@ export const reviewStoreSubmission = onCall(
           : (merchant.status as UserStatus);
       const auditReference = database.collection("auditLogs").doc();
       if (input.decision === "approve") {
+        if (!hasUsableOpeningHours(store.openingHours))
+          throw new HttpsError(
+            "failed-precondition",
+            "Approval requires usable opening hours.",
+          );
         const deliveryZoneIds =
           input.deliveryZoneIds ?? stringArray(store.deliveryZoneIds);
         if (deliveryZoneIds.length === 0) {
@@ -820,6 +870,14 @@ export const updateMerchantStore = onCall(
     const actor = await requireActor(request);
     requireCommand(actor, "updateMerchantStore");
     const input = parseInput(updateMerchantStoreInputSchema, request.data);
+    if (
+      input.openForOrders &&
+      !hasUsableOpeningHours(input.openingHours)
+    )
+      throw new HttpsError(
+        "failed-precondition",
+        "Opening for orders requires usable opening hours.",
+      );
     requireStoreScope(actor, input.storeId);
     const storeReference = database.collection("stores").doc(input.storeId);
     const snapshot = await storeReference.get();
@@ -836,20 +894,12 @@ export const updateMerchantStore = onCall(
         "Only the approved store owner may update this store.",
       );
     }
-    const cardMedia = await preparePublishedMedia(
+    const [cardMedia, heroMedia] = await prepareStoreMedia(
+      actor,
+      input.storeId,
       input.cardMedia,
-      actor,
-      input.storeId,
-      "store-card",
-      input.storeId,
-      store.cardMedia,
-    );
-    const heroMedia = await preparePublishedMedia(
       input.heroMedia,
-      actor,
-      input.storeId,
-      "store-hero",
-      input.storeId,
+      store.cardMedia,
       store.heroMedia,
     );
     const auditReference = database.collection("auditLogs").doc();
@@ -1023,8 +1073,54 @@ type GooglePlace = {
   formattedAddress?: string;
   location?: { latitude?: number; longitude?: number };
   primaryTypeDisplayName?: { text?: string };
-  regularOpeningHours?: { periods?: Array<Record<string, unknown>> };
+  regularOpeningHours?: {
+    periods?: Array<{
+      open?: { day?: number; hour?: number; minute?: number };
+      close?: { day?: number; hour?: number; minute?: number };
+    }>;
+  };
 };
+
+function googleClock(value: { hour?: number; minute?: number }): string | null {
+  const hour = value.hour;
+  const minute = value.minute ?? 0;
+  return Number.isInteger(hour) &&
+    Number.isInteger(minute) &&
+    hour !== undefined &&
+    hour >= 0 &&
+    hour <= 23 &&
+    minute >= 0 &&
+    minute <= 59
+    ? `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
+    : null;
+}
+
+function normalizeGoogleOpeningHours(
+  hours: GooglePlace["regularOpeningHours"],
+) {
+  const byDay = new Map<number, Record<string, unknown>>();
+  for (const period of hours?.periods ?? []) {
+    const day = period.open?.day;
+    const opensAt = period.open ? googleClock(period.open) : null;
+    const closesAt = period.close ? googleClock(period.close) : null;
+    if (
+      day === undefined ||
+      !Number.isInteger(day) ||
+      day < 0 ||
+      day > 6 ||
+      opensAt === null ||
+      closesAt === null ||
+      opensAt === closesAt ||
+      byDay.has(day)
+    )
+      continue;
+    byDay.set(day, { day, closed: false, opensAt, closesAt });
+  }
+  return Array.from(
+    { length: 7 },
+    (_, day) => byDay.get(day) ?? { day, closed: true },
+  );
+}
 
 function placeCandidate(place: GooglePlace) {
   if (
@@ -1047,31 +1143,26 @@ function placeCandidate(place: GooglePlace) {
   };
 }
 
-async function googlePlacesRequest(
-  url: string,
-  init: RequestInit,
-): Promise<unknown> {
-  const response = await fetch(url, {
-    ...init,
-    signal: AbortSignal.timeout(8_000),
-  });
-  if (!response.ok) {
-    logger.error("Google Places request failed", { status: response.status });
-    throw new HttpsError(
-      "unavailable",
-      "Google Places could not complete the request.",
+async function googlePlacesRequest(actorId: string, cacheKey: string, url: string, init: RequestInit): Promise<unknown> {
+  try {
+    return await marketplacePlacesGate.run({ actorId, cacheKey }, () =>
+      jsonProviderGateway.request(url, init, "marketplace/google-places"),
     );
+  } catch (error) {
+    if (error instanceof AppError)
+      throw new HttpsError("resource-exhausted", error.userMessage);
+    throw error;
   }
-  return response.json();
 }
 
 export const searchStorePlaces = onCall(
-  { region: functionRegion, secrets: [googleMapsServerApiKey] },
+  { region: functionRegion, secrets: [googleMapsServerApiKey], maxInstances: 10 },
   async (request) => {
     const actor = await requireActor(request);
     requireCommand(actor, "searchStorePlaces");
     const input = parseInput(storePlaceSearchInputSchema, request.data);
     const payload = await googlePlacesRequest(
+      actor.uid, `search:${normalizeSearchText(input.query)}`,
       "https://places.googleapis.com/v1/places:searchText",
       {
         method: "POST",
@@ -1099,13 +1190,14 @@ export const searchStorePlaces = onCall(
 );
 
 export const stageGoogleStoreImport = onCall(
-  { region: functionRegion, secrets: [googleMapsServerApiKey] },
+  { region: functionRegion, secrets: [googleMapsServerApiKey], maxInstances: 10 },
   async (request) => {
     const actor = await requireActor(request);
     requireCommand(actor, "stageGoogleStoreImport");
     const input = parseInput(stageGoogleStoreImportInputSchema, request.data);
     const place = asRecord(
       await googlePlacesRequest(
+        actor.uid, `place:${input.placeId}`,
         `https://places.googleapis.com/v1/places/${encodeURIComponent(input.placeId)}`,
         {
           method: "GET",
@@ -1141,6 +1233,11 @@ export const stageGoogleStoreImport = onCall(
         acceptedAt: new Date().toISOString(),
       };
     }
+    if ((await database.collection("stores").doc(storeId).get()).exists)
+      throw new HttpsError(
+        "already-exists",
+        "This Google place already has a store record.",
+      );
     const rowReference = batchReference.collection("rows").doc("store");
     const writeBatch = database.batch();
     writeBatch.create(batchReference, {
@@ -1170,7 +1267,7 @@ export const stageGoogleStoreImport = onCall(
           coordinates: candidate.coordinates,
           placeId: candidate.placeId,
         },
-        openingHours: [],
+        openingHours: normalizeGoogleOpeningHours(place.regularOpeningHours),
         minimumOrder: { amountMinor: 0, currency: "ZAR" },
       },
       ...metadata(actor, false),
@@ -1455,7 +1552,7 @@ export const commitCatalogImport = onCall(
       const store = asRecord(importBatch.normalizedStore);
       if (typeof store.id !== "string")
         throw new HttpsError("failed-precondition", "Store import is invalid.");
-      writeBatch.set(
+      writeBatch.create(
         database.collection("stores").doc(store.id),
         {
           ...store,
@@ -1465,7 +1562,6 @@ export const commitCatalogImport = onCall(
           openForOrders: false,
           ...metadata(actor, false),
         },
-        { merge: false },
       );
       writeBatch.create(
         auditReference,

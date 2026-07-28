@@ -23,11 +23,27 @@ function messageFor(error: unknown): string {
     : "Checkout configuration could not be saved.";
 }
 
+export function parseRandAmountMinor(
+  value: FormDataEntryValue | null,
+  name: string,
+): number {
+  const match =
+    typeof value === "string"
+      ? /^(\d+)(?:\.(\d{1,2}))?$/.exec(value.trim())
+      : null;
+  if (!match)
+    throw new Error(
+      `${name} must be a non-negative amount with at most two decimal places.`,
+    );
+  const amountMinor =
+    Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
+  if (!Number.isSafeInteger(amountMinor))
+    throw new Error(`${name} is too large.`);
+  return amountMinor;
+}
+
 function amountMinor(data: FormData, name: string): number {
-  const value = Number(data.get(name));
-  if (!Number.isFinite(value) || value < 0)
-    throw new Error(`${name} must be a non-negative amount.`);
-  return Math.ceil(value * 100);
+  return parseRandAmountMinor(data.get(name), name);
 }
 
 export function CheckoutSettingsPanel({
@@ -276,7 +292,9 @@ export function CheckoutSettingsPanel({
             <input
               name="effectiveFrom"
               type="datetime-local"
-              defaultValue={new Date().toISOString().slice(0, 16)}
+              defaultValue={new Date(
+                Date.now() - new Date().getTimezoneOffset() * 60_000,
+              ).toISOString().slice(0, 16)}
               required
             />
           </label>

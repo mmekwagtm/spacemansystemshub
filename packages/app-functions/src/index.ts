@@ -1,15 +1,20 @@
 import {
   APP_ROLES,
+  NEEDS_ACTION_REASONS,
   canTransitionFulfillment,
   canTransitionUserStatus,
 } from "@spaceman/app-core";
 import type {
   AppRole,
   FulfillmentStatus,
+  NeedsActionReason,
   UserStatus,
 } from "@spaceman/app-core";
 import { AppError } from "@spaceman/app-errors";
-import { testRunIdSchema } from "@spaceman/app-validation";
+import {
+  openingHoursSchema,
+  testRunIdSchema,
+} from "@spaceman/app-validation";
 
 export const TRUSTED_COMMANDS = [
   "registerCustomerProfile",
@@ -150,6 +155,35 @@ export function assertAssignmentVersion(
       userMessage:
         "This order was updated by another dispatcher. Refresh and try again.",
       debug: { expectedVersion, currentVersion },
+    });
+  }
+}
+
+export function needsActionReasonsAfterAssignment(
+  reasons: readonly unknown[],
+): NeedsActionReason[] {
+  const remaining = reasons.filter(
+    (reason): reason is NeedsActionReason =>
+      typeof reason === "string" &&
+      NEEDS_ACTION_REASONS.includes(reason as NeedsActionReason) &&
+      reason !== "none" &&
+      reason !== "no_driver_assigned",
+  );
+  return remaining.length > 0 ? [...new Set(remaining)] : ["none"];
+}
+
+export function assertFeeRuleEffectiveNow(
+  effectiveFrom: string,
+  now: Date = new Date(),
+): void {
+  const effectiveAt = Date.parse(effectiveFrom);
+  if (!Number.isFinite(effectiveAt) || effectiveAt > now.getTime()) {
+    throw new AppError({
+      code: "invalid_input",
+      source: "app-functions/fee-rule-publication",
+      message: "Fee-rule publication requires a current effective date.",
+      userMessage:
+        "Future fee rules are not supported. Choose the current time or earlier.",
     });
   }
 }
@@ -434,6 +468,20 @@ function clockMinute(value: string | undefined): number | null {
   const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
   if (!match?.[1] || !match[2]) return null;
   return Number(match[1]) * 60 + Number(match[2]);
+}
+
+export function hasUsableOpeningHours(value: unknown): boolean {
+  const parsed = openingHoursSchema.safeParse(value);
+  return (
+    parsed.success &&
+    parsed.data.some(
+      (period) =>
+        !period.closed &&
+        period.opensAt !== undefined &&
+        period.closesAt !== undefined &&
+        period.opensAt !== period.closesAt,
+    )
+  );
 }
 
 export function isStoreOpenAt(

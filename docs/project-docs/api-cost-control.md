@@ -1,16 +1,19 @@
 # API Cost Control
 
 The accepted Phase 3 development backend connects Firebase and a restricted
-Places API adapter. Phase 4 source adds server-only Places address resolution,
-one Routes calculation per authoritative quote, and hosted Paystack; those
-changes remain undeployed until owner rollout.
+Places API adapter. Nine Phase 4 Functions are active, but Phase 4 remains
+unaccepted pending provider, payment, cleanup, browser, and device gates.
 
 ## Maps
 
 `@spaceman/app-maps` owns contracts and backend-adapter interfaces. Screens do
 not call Google APIs directly. Address search and routing use debounce, session
-tokens, field masks, caching, lazy map loading, request limits, and structured
+tokens, field masks, caching, lazy loading, request limits, and structured
 provider errors.
+
+Source adds per-runtime actor budgets, a 20-second address cache, bounded
+instances, and decision logs. These changes are not deployed by this change;
+Firebase and Google quotas remain the cross-instance cost boundary.
 
 Checkout fails closed when serviceability, distance, or the delivery fee cannot
 be authoritatively calculated. Driver location is foreground-only in V1 and is

@@ -3,6 +3,7 @@ import {
   QueryClientProvider,
 } from "@spaceman/app-query";
 import type { MarketplaceService } from "@spaceman/app-services";
+import type { UpsertStoreInput } from "@spaceman/app-types";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -39,9 +40,12 @@ describe("Admin marketplace", () => {
   });
 
   it("keeps a newly created store selectable outside the bounded admin page", async () => {
+    const saveAdminStore = vi.fn(async (_input: UpsertStoreInput) => ({
+      id: "store-new",
+    }));
     const scopedService = {
       ...service,
-      saveAdminStore: vi.fn(async () => ({ id: "store-new" })),
+      saveAdminStore,
     } as unknown as MarketplaceService;
 
     render(
@@ -74,5 +78,7 @@ describe("Admin marketplace", () => {
     expect(
       screen.getByRole("option", { name: "New bounded-page store" }),
     ).toBeInTheDocument();
+    expect(saveAdminStore).toHaveBeenCalledOnce();
+    expect(saveAdminStore.mock.calls[0]?.[0].openingHours).toHaveLength(7);
   });
 });

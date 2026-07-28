@@ -1,13 +1,19 @@
 import { formatMoney } from "@spaceman/app-core";
 import { isAppError } from "@spaceman/app-errors";
-import { prepareCatalogMediaFile } from "@spaceman/app-firebase";
 import {
   useManagedItems,
   useMerchantStores,
   usePendingMerchantStores,
 } from "@spaceman/app-query";
-import type { MarketplaceService } from "@spaceman/app-services";
-import type { Store, SubmitMerchantStoreInput } from "@spaceman/app-types";
+import {
+  prepareCatalogMediaFile,
+  type MarketplaceService,
+} from "@spaceman/app-services";
+import type {
+  OpeningHoursPeriod,
+  Store,
+  SubmitMerchantStoreInput,
+} from "@spaceman/app-types";
 import { useEffect, useState, type FormEvent } from "react";
 
 interface MarketplacePanelProps {
@@ -17,18 +23,74 @@ interface MarketplacePanelProps {
   submissionOnly?: boolean;
 }
 
+const usableOpeningPeriod = (period: OpeningHoursPeriod) =>
+  !period.closed && !!period.opensAt && !!period.closesAt && period.opensAt !== period.closesAt;
+
 function messageFor(error: unknown): string {
   return isAppError(error)
     ? error.userMessage
     : "The merchant marketplace request failed.";
 }
 
+function openingHoursFrom(
+  data: FormData,
+  existing?: OpeningHoursPeriod[],
+): OpeningHoursPeriod[] {
+  if (existing?.some(usableOpeningPeriod) && data.get("replaceOpeningHours") !== "on")
+    return existing;
+  const opensAt = String(data.get("opensAt"));
+  const closesAt = String(data.get("closesAt"));
+  return Array.from({ length: 7 }, (_, day) => ({
+    day: day as OpeningHoursPeriod["day"],
+    closed: false,
+    opensAt,
+    closesAt,
+  }));
+}
+
+function OpeningHoursFields({
+  periods,
+}: {
+  periods?: OpeningHoursPeriod[];
+}) {
+  const current = periods?.find(usableOpeningPeriod);
+  return (
+    <fieldset>
+      <legend>Daily opening hours</legend>
+      {current ? (
+        <label className="check-row">
+          <input name="replaceOpeningHours" type="checkbox" /> Replace the
+          current weekly schedule
+        </label>
+      ) : null}
+      <label>
+        Opens
+        <input
+          defaultValue={current?.opensAt ?? "08:00"}
+          name="opensAt"
+          required
+          type="time"
+        />
+      </label>
+      <label>
+        Closes
+        <input
+          defaultValue={current?.closesAt ?? "20:00"}
+          name="closesAt"
+          required
+          type="time"
+        />
+      </label>
+    </fieldset>
+  );
+}
+
 function storeSubmissionInput(
   data: FormData,
-  storeId?: string,
+  store?: Store,
 ): SubmitMerchantStoreInput {
   return {
-    ...(storeId === undefined ? {} : { storeId }),
+    ...(store === undefined ? {} : { storeId: store.id }),
     name: String(data.get("name")),
     category: String(data.get("category")),
     description: String(data.get("description")),
@@ -40,7 +102,7 @@ function storeSubmissionInput(
         longitude: Number(data.get("longitude")),
       },
     },
-    openingHours: [],
+    openingHours: openingHoursFrom(data, store?.openingHours),
     minimumOrder: {
       amountMinor: Number(data.get("minimumOrder")),
       currency: "ZAR",
@@ -107,63 +169,10 @@ export function MarketplacePanel({
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     await run(async () => {
-      const storeInput = storeSubmissionInput(data, existingStore?.id);
-      const file = data.get("cardImage");
-      if (existingStore) {
-        const media =
-          file instanceof File && file.size > 0
-            ? await service.stageMedia({
-                storeId: existingStore.id,
-                ownerId,
-                assetId: crypto.randomUUID(),
-                altText: String(data.get("cardImageAlt")),
-                ...(await prepareCatalogMediaFile(file)),
-              })
-            : undefined;
-        try {
-          await service.submitMerchantStore({
-            ...storeInput,
-            ...(media ? { cardMedia: media } : {}),
-          });
-        } catch (error) {
-          if (media) {
-            await service.cleanupMedia({
-              storeId: existingStore.id,
-              sourcePath: media.sourcePath,
-              thumbnailPath: media.thumbnailPath,
-            });
-          }
-          throw error;
-        }
-        setStoreId(existingStore.id);
-        return;
-      }
-
-      const result = await service.submitMerchantStore(storeInput);
+      const result = await service.submitMerchantStore(
+        storeSubmissionInput(data, existingStore),
+      );
       setStoreId(result.id);
-      if (file instanceof File && file.size > 0) {
-        const media = await service.stageMedia({
-          storeId: result.id,
-          ownerId,
-          assetId: crypto.randomUUID(),
-          altText: String(data.get("cardImageAlt")),
-          ...(await prepareCatalogMediaFile(file)),
-        });
-        try {
-          await service.submitMerchantStore({
-            ...storeInput,
-            storeId: result.id,
-            cardMedia: media,
-          });
-        } catch (error) {
-          await service.cleanupMedia({
-            storeId: result.id,
-            sourcePath: media.sourcePath,
-            thumbnailPath: media.thumbnailPath,
-          });
-          throw error;
-        }
-      }
     }, existingStore
       ? "Corrected store resubmitted for administrator review."
       : "Draft submitted for administrator review.");
@@ -191,7 +200,7 @@ export function MarketplacePanel({
           name: String(data.get("name")),
           category: String(data.get("category")),
           description: String(data.get("description")),
-          openingHours: [],
+          openingHours: openingHoursFrom(data, activeStore?.openingHours),
           openForOrders: data.get("openForOrders") === "on",
           minimumOrder: {
             amountMinor: Number(data.get("minimumOrder")),
@@ -332,18 +341,8 @@ export function MarketplacePanel({
               required
             />
           </label>
-          <label>
-            Store card image
-            <input
-              name="cardImage"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-            />
-          </label>
-          <label>
-            Store image alt text
-            <input name="cardImageAlt" defaultValue="Store card image" />
-          </label>
+          <OpeningHoursFields />
+          <p>Store media can be added after administrator approval.</p>
           <button disabled={busy} type="submit">
             Submit for review
           </button>
@@ -417,23 +416,8 @@ export function MarketplacePanel({
                 required
               />
             </label>
-            <label>
-              Replacement card image
-              <input
-                name="cardImage"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-              />
-            </label>
-            <label>
-              Store image alt text
-              <input
-                name="cardImageAlt"
-                defaultValue={
-                  activeStore.cardMedia?.altText ?? activeStore.name
-                }
-              />
-            </label>
+            <OpeningHoursFields periods={activeStore.openingHours} />
+            <p>Store media can be added after administrator approval.</p>
             <button disabled={busy} type="submit">
               Resubmit corrected store
             </button>
@@ -485,6 +469,7 @@ export function MarketplacePanel({
                 required
               />
             </label>
+            <OpeningHoursFields periods={activeStore.openingHours} />
             <label className="check-row">
               <input
                 name="openForOrders"

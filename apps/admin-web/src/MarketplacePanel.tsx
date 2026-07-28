@@ -1,13 +1,16 @@
 import { formatMoney } from "@spaceman/app-core";
 import { isAppError } from "@spaceman/app-errors";
-import { prepareCatalogMediaFile } from "@spaceman/app-firebase";
 import {
   useAdminStores,
   useImportRows,
   useManagedItems,
 } from "@spaceman/app-query";
-import type { MarketplaceService } from "@spaceman/app-services";
+import {
+  prepareCatalogMediaFile,
+  type MarketplaceService,
+} from "@spaceman/app-services";
 import type {
+  OpeningHoursPeriod,
   StorePlaceCandidate,
   UpsertStoreInput,
 } from "@spaceman/app-types";
@@ -29,6 +32,33 @@ function values(data: FormData, name: string): string[] {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function openingHoursFrom(data: FormData): OpeningHoursPeriod[] {
+  const opensAt = String(data.get("opensAt"));
+  const closesAt = String(data.get("closesAt"));
+  return Array.from({ length: 7 }, (_, day) => ({
+    day: day as OpeningHoursPeriod["day"],
+    closed: false,
+    opensAt,
+    closesAt,
+  }));
+}
+
+function OpeningHoursFields() {
+  return (
+    <fieldset>
+      <legend>Daily opening hours</legend>
+      <label>
+        Opens
+        <input defaultValue="08:00" name="opensAt" required type="time" />
+      </label>
+      <label>
+        Closes
+        <input defaultValue="20:00" name="closesAt" required type="time" />
+      </label>
+    </fieldset>
+  );
 }
 
 export function MarketplacePanel({ ownerId, service }: MarketplacePanelProps) {
@@ -84,7 +114,9 @@ export function MarketplacePanel({ ownerId, service }: MarketplacePanelProps) {
     const form = event.currentTarget;
     const data = new FormData(form);
     await run(async () => {
+      const requestedStoreId = crypto.randomUUID();
       const storeInput: UpsertStoreInput = {
+        storeId: requestedStoreId,
         merchantId: String(data.get("merchantId")),
         name: String(data.get("name")),
         category: String(data.get("category")),
@@ -99,39 +131,40 @@ export function MarketplacePanel({ ownerId, service }: MarketplacePanelProps) {
             longitude: Number(data.get("longitude")),
           },
         },
-        openingHours: [],
+        openingHours: openingHoursFrom(data),
         openForOrders: data.get("status") === "active",
         minimumOrder: {
           amountMinor: Number(data.get("minimumOrder")),
           currency: "ZAR",
         },
       };
-      const result = await service.saveAdminStore(storeInput);
-      setStoreId(result.id);
-      setCreatedStoreOption({ id: result.id, name: storeInput.name });
       const file = data.get("cardImage");
-      if (file instanceof File && file.size > 0) {
-        const media = await service.stageMedia({
-          storeId: result.id,
-          ownerId,
-          assetId: crypto.randomUUID(),
-          altText: String(data.get("cardImageAlt")),
-          ...(await prepareCatalogMediaFile(file)),
+      const media =
+        file instanceof File && file.size > 0
+          ? await service.stageMedia({
+              storeId: requestedStoreId,
+              ownerId,
+              assetId: crypto.randomUUID(),
+              altText: String(data.get("cardImageAlt")),
+              ...(await prepareCatalogMediaFile(file)),
+            })
+          : undefined;
+      try {
+        const result = await service.saveAdminStore({
+          ...storeInput,
+          ...(media ? { cardMedia: media } : {}),
         });
-        try {
-          await service.saveAdminStore({
-            ...storeInput,
-            storeId: result.id,
-            cardMedia: media,
-          });
-        } catch (error) {
+        setStoreId(result.id);
+        setCreatedStoreOption({ id: result.id, name: storeInput.name });
+      } catch (error) {
+        if (media) {
           await service.cleanupMedia({
-            storeId: result.id,
+            storeId: requestedStoreId,
             sourcePath: media.sourcePath,
             thumbnailPath: media.thumbnailPath,
           });
-          throw error;
         }
+        throw error;
       }
       form.reset();
     }, "Store saved through the trusted marketplace command.");
@@ -302,6 +335,7 @@ export function MarketplacePanel({ ownerId, service }: MarketplacePanelProps) {
               required
             />
           </label>
+          <OpeningHoursFields />
           <label>
             Store card image
             <input

@@ -38,7 +38,7 @@ const rejectedStore: Store = {
     formattedAddress: "Mabopane, South Africa",
     coordinates: { latitude: -25.5407, longitude: 28.1007 },
   },
-  openingHours: [],
+  openingHours: [{ day: 0, closed: true }],
   openForOrders: false,
   minimumOrder: { amountMinor: 0, currency: "ZAR" },
   rejectionReason: "Add a clearer description.",
@@ -102,9 +102,9 @@ describe("Merchant marketplace", () => {
     );
 
     expect(await screen.findByText("Add a clearer description.")).toBeVisible();
-    const correctionForm = screen
-      .getByRole("heading", { name: "Correct rejected store" })
-      .closest("form");
+    const correctionForm = (
+      await screen.findByRole("heading", { name: "Correct rejected store" })
+    ).closest("form");
     expect(correctionForm).not.toBeNull();
     const correction = within(correctionForm as HTMLFormElement);
     fireEvent.change(correction.getByRole("textbox", { name: "Description" }), {
@@ -119,6 +119,7 @@ describe("Merchant marketplace", () => {
         expect.objectContaining({
           storeId: rejectedStore.id,
           description: "Corrected submission.",
+          openingHours: expect.arrayContaining([expect.objectContaining({ closed: false })]),
         }),
       ),
     );

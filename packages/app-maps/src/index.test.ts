@@ -6,6 +6,7 @@ import {
   feePolicyFromSnapshot,
   matchesAllowedLocality,
   parseGoogleDurationSeconds,
+  ProviderRequestGate,
   requireVerifiedServiceability,
 } from "./index";
 
@@ -94,6 +95,43 @@ describe("Phase 4 delivery fees", () => {
 });
 
 describe("Phase 4 Maps guards", () => {
+  it("caches duplicate provider work inside one actor session", async () => {
+    const gate = new ProviderRequestGate({
+      limit: 2,
+      windowMs: 60_000,
+      cacheTtlMs: 10_000,
+    });
+    let calls = 0;
+    const load = async () => {
+      calls += 1;
+      return ["result"];
+    };
+
+    await expect(
+      gate.run({ actorId: "customer-1", cacheKey: "session:query" }, load),
+    ).resolves.toEqual(["result"]);
+    await expect(
+      gate.run({ actorId: "customer-1", cacheKey: "session:query" }, load),
+    ).resolves.toEqual(["result"]);
+    expect(calls).toBe(1);
+  });
+
+  it("limits provider-bound calls and resets after the window", async () => {
+    let now = 1_000;
+    const gate = new ProviderRequestGate(
+      { limit: 1, windowMs: 1_000, cacheTtlMs: 0 },
+      () => now,
+    );
+    await gate.run({ actorId: "customer-1" }, async () => "first");
+    await expect(
+      gate.run({ actorId: "customer-1" }, async () => "blocked"),
+    ).rejects.toThrow("bounded provider request window");
+    now += 1_000;
+    await expect(
+      gate.run({ actorId: "customer-1" }, async () => "second"),
+    ).resolves.toBe("second");
+  });
+
   it("matches normalized Mabopane locality components", () => {
     expect(
       matchesAllowedLocality(

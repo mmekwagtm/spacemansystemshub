@@ -215,12 +215,12 @@ describe("Customer Web Phase 4 checkout", () => {
     expect(recentOrders).toHaveTextContent(/R\s*100,00/);
   });
 
-  it("reuses the same checkout idempotency key after a lost response", async () => {
+  it("reuses a lost-response key, then rotates token and key after success", async () => {
     const cart = await populatedCart();
     const checkout = service();
     checkout.createSession
       .mockRejectedValueOnce(new Error("simulated lost response"))
-      .mockResolvedValueOnce(quote("2099-07-26T12:00:00.000Z"));
+      .mockResolvedValue(quote("2099-07-26T12:00:00.000Z"));
     render(
       <QueryClientProvider client={createSpacemanQueryClient()}>
         <CheckoutPanel
@@ -234,19 +234,30 @@ describe("Customer Web Phase 4 checkout", () => {
     );
 
     await selectAddress();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Calculate delivery quote" }),
-    );
+    const calculate = screen.getByRole("button", {
+      name: "Calculate delivery quote",
+    });
+    fireEvent.click(calculate);
     await screen.findByRole("alert");
-    fireEvent.click(
-      screen.getByRole("button", { name: "Calculate delivery quote" }),
-    );
+    fireEvent.click(calculate);
     await screen.findByRole("heading", { name: "Review server quote" });
 
     expect(checkout.createSession).toHaveBeenCalledTimes(2);
     expect(checkout.createSession.mock.calls[1]?.[0].idempotencyKey).toBe(
       checkout.createSession.mock.calls[0]?.[0].idempotencyKey,
     );
+    fireEvent.click(calculate);
+    await waitFor(() =>
+      expect(checkout.createSession).toHaveBeenCalledTimes(3),
+    );
+
+    const replay = checkout.createSession.mock.calls[1]?.[0];
+    const next = checkout.createSession.mock.calls[2]?.[0];
+    expect(next?.idempotencyKey).not.toBe(replay?.idempotencyKey);
+    expect(next?.addressSelection.sessionToken).not.toBe(
+      replay?.addressSelection.sessionToken,
+    );
+    expect(next?.addressSelection.sessionToken.length).toBeLessThanOrEqual(36);
   });
 
   it("blocks offline address search and refuses an expired quote", async () => {

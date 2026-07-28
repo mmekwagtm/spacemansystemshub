@@ -94,6 +94,7 @@ import {
 } from "@spaceman/shared/auth";
 
 export { createFirestoreRepositories } from "@spaceman/app-database";
+export { prepareCatalogMediaFile } from "@spaceman/app-firebase";
 
 export interface IdentityService {
   subscribe(

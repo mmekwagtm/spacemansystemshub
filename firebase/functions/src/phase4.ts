@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { isAppRole, type AppRole } from "@spaceman/app-core";
 import { AppError } from "@spaceman/app-errors";
 import {
+  assertFeeRuleEffectiveNow,
   assertPaystackVerification,
   assertQuoteFresh,
   assertTrustedCommandAccess,
@@ -19,6 +20,7 @@ import {
   matchesAllowedLocality,
   normalizeLocality,
   parseGoogleDurationSeconds,
+  ProviderRequestGate,
 } from "@spaceman/app-maps";
 import type {
   CheckoutAddressSnapshot,
@@ -55,6 +57,7 @@ import {
   verifyPaystackSignature,
   type PaystackVerificationData,
 } from "./phase4-helpers.js";
+import { jsonProviderGateway } from "./provider-gateway.js";
 
 if (getApps().length === 0) initializeApp();
 
@@ -63,8 +66,21 @@ const functionRegion = process.env.SPACEMAN_FUNCTIONS_REGION ?? "africa-south1";
 const googleMapsServerApiKey = defineSecret("GOOGLE_MAPS_SERVER_API_KEY");
 const paystackSecret = defineSecret("PAYSTACK_SECRET_KEY");
 const quoteLifetimeMs = 10 * 60 * 1_000;
-const providerTimeoutMs = 10_000;
 const paymentInitializationLeaseMs = 90_000;
+const addressSearchGate = new ProviderRequestGate({
+  limit: 30,
+  windowMs: 60_000,
+  cacheTtlMs: 20_000,
+  onDecision: (decision) =>
+    logger.info("Maps request gate", { flow: "address_search", decision }),
+});
+const checkoutMapsGate = new ProviderRequestGate({
+  limit: 10,
+  windowMs: 60_000,
+  cacheTtlMs: 0,
+  onDecision: (decision) =>
+    logger.info("Maps request gate", { flow: "checkout_quote", decision }),
+});
 
 type Actor = {
   uid: string;
@@ -210,6 +226,8 @@ function throwAppError(error: unknown): never {
   const code =
     error.code === "invalid_input"
       ? "invalid-argument"
+      : error.code === "rate_limited"
+        ? "resource-exhausted"
       : error.code === "authorization_denied"
         ? "permission-denied"
         : error.code === "conflict"
@@ -546,54 +564,11 @@ async function loadCatalog(
   };
 }
 
-async function fetchJson(
-  url: string,
-  init: RequestInit,
-  source: string,
-): Promise<unknown> {
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      ...init,
-      signal: AbortSignal.timeout(providerTimeoutMs),
-    });
-  } catch (error) {
-    logger.warn("Phase 4 provider request failed", {
-      source,
-      errorName: error instanceof Error ? error.name : "unknown",
-    });
-    throw new HttpsError(
-      "unavailable",
-      "A required provider is temporarily unavailable.",
-    );
-  }
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    throw new HttpsError(
-      "unavailable",
-      "A required provider returned an invalid response.",
-    );
-  }
-  if (!response.ok) {
-    logger.warn("Phase 4 provider rejected a request", {
-      source,
-      status: response.status,
-    });
-    throw new HttpsError(
-      response.status === 429 ? "resource-exhausted" : "unavailable",
-      "A required provider rejected the request.",
-    );
-  }
-  return body;
-}
-
 async function searchGooglePlaces(
   query: string,
   sessionToken: string,
 ): Promise<DeliveryAddressCandidate[]> {
-  const body = await fetchJson(
+  const body = await jsonProviderGateway.request(
     "https://places.googleapis.com/v1/places:autocomplete",
     {
       method: "POST",
@@ -672,7 +647,7 @@ async function resolveGooglePlace(
   url.searchParams.set("sessionToken", sessionToken);
   url.searchParams.set("languageCode", "en");
   url.searchParams.set("regionCode", "za");
-  const body = await fetchJson(
+  const body = await jsonProviderGateway.request(
     url.toString(),
     {
       method: "GET",
@@ -877,7 +852,7 @@ async function computeGoogleRoute(
   destination: { latitude: number; longitude: number },
   calculatedAt: string,
 ): Promise<CheckoutRouteSnapshot> {
-  const body = await fetchJson(
+  const body = await jsonProviderGateway.request(
     "https://routes.googleapis.com/directions/v2:computeRoutes",
     {
       method: "POST",
@@ -941,7 +916,7 @@ async function verifyWithPaystack(
   reference: string,
   secret: string,
 ): Promise<{ data: PaystackVerificationData; payloadHash: string }> {
-  const payload = await fetchJson(
+  const payload = await jsonProviderGateway.request(
     `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
     {
       method: "GET",
@@ -1222,7 +1197,11 @@ async function reconcileVerifiedPayment(input: {
 }
 
 export const searchDeliveryAddresses = onCall(
-  { region: functionRegion, secrets: [googleMapsServerApiKey] },
+  {
+    region: functionRegion,
+    secrets: [googleMapsServerApiKey],
+    maxInstances: 10,
+  },
   async (request) => {
     const actor = await requireActor(request);
     requireCommand(actor, "searchDeliveryAddresses");
@@ -1246,12 +1225,26 @@ export const searchDeliveryAddresses = onCall(
         "failed-precondition",
         "The selected store is unavailable for delivery search.",
       );
-    return searchGooglePlaces(input.query, input.sessionToken);
+    try {
+      return await addressSearchGate.run(
+        {
+          actorId: actor.uid,
+          cacheKey: `${input.storeId}:${input.sessionToken}:${normalizeLocality(input.query)}`,
+        },
+        () => searchGooglePlaces(input.query, input.sessionToken),
+      );
+    } catch (error) {
+      throwAppError(error);
+    }
   },
 );
 
 export const createCheckoutSession = onCall(
-  { region: functionRegion, secrets: [googleMapsServerApiKey] },
+  {
+    region: functionRegion,
+    secrets: [googleMapsServerApiKey],
+    maxInstances: 10,
+  },
   async (request): Promise<CheckoutQuoteResult> => {
     const actor = await requireActor(request);
     requireCommand(actor, "createCheckoutSession");
@@ -1279,6 +1272,11 @@ export const createCheckoutSession = onCall(
       return {
         checkoutSession: asCheckoutSession(checkoutSessionId, existing),
       };
+    }
+    try {
+      await checkoutMapsGate.run({ actorId: actor.uid }, async () => undefined);
+    } catch (error) {
+      throwAppError(error);
     }
 
     const loaded = await loadCatalog(
@@ -1535,6 +1533,11 @@ export const publishDeliveryFeeRule = onCall(
     requireCommand(actor, "publishDeliveryFeeRule");
     const input = parseInput(publishDeliveryFeeRuleInputSchema, request.data);
     assertDevelopmentFixture(input.testRunId);
+    try {
+      assertFeeRuleEffectiveNow(input.effectiveFrom);
+    } catch (error) {
+      throwAppError(error);
+    }
     const zoneReference = database
       .collection("deliveryZones")
       .doc(input.deliveryZoneId);
@@ -1834,7 +1837,7 @@ export const initializePaystackPayment = onCall(
 
     let initialized: ReturnType<typeof parsePaystackInitializeResponse>;
     try {
-      const payload = await fetchJson(
+      const payload = await jsonProviderGateway.request(
         "https://api.paystack.co/transaction/initialize",
         {
           method: "POST",

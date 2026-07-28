@@ -159,6 +159,7 @@ export const openingHoursPeriodSchema = z
 export const openingHoursSchema = z
   .array(openingHoursPeriodSchema)
   .max(7)
+  .refine((periods) => new Set(periods.map((period) => period.day)).size === periods.length)
   .default([]);
 
 const storeFieldsSchema = z.object({

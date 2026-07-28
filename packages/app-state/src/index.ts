@@ -202,17 +202,19 @@ export function createCartStore(options: {
     };
   };
   const persist = (): void => {
-    writeQueue = writeQueue.then(async () => {
-      const snapshot = persistedSnapshot();
-      if (
-        snapshot.lines.length === 0 &&
-        snapshot.pendingCheckout === undefined
-      ) {
-        await options.storage.removeItem(key);
-        return;
-      }
-      await options.storage.setItem(key, JSON.stringify(snapshot));
-    });
+    writeQueue = writeQueue
+      .then(async () => {
+        const snapshot = persistedSnapshot();
+        if (
+          snapshot.lines.length === 0 &&
+          snapshot.pendingCheckout === undefined
+        ) {
+          await options.storage.removeItem(key);
+          return;
+        }
+        await options.storage.setItem(key, JSON.stringify(snapshot));
+      })
+      .catch(() => undefined);
   };
 
   const store = createStore<CartState>()((set, get) => {
@@ -315,20 +317,30 @@ export function createCartStore(options: {
 
   return Object.assign(store, {
     async hydrate() {
-      const raw = await options.storage.getItem(key);
+      let raw: string | null;
+      try {
+        raw = await options.storage.getItem(key);
+      } catch {
+        store.setState({ hydrated: true });
+        return;
+      }
       if (raw === null) {
         store.setState({ hydrated: true });
         return;
       }
       const parsed = parsePersistedCart(raw);
       if (parsed === null) {
-        await options.storage.removeItem(key);
         store.setState({
           hydrated: true,
           store: undefined,
           lines: [],
           pendingCheckout: undefined,
         });
+        try {
+          await options.storage.removeItem(key);
+        } catch {
+          // The in-memory cart remains usable when corrupt storage cannot clear.
+        }
         return;
       }
       store.setState({

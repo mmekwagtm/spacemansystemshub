@@ -31,6 +31,103 @@ export interface MapsGateway {
   } | null>;
 }
 
+export interface ProviderRequestPolicy {
+  limit: number;
+  windowMs: number;
+  cacheTtlMs: number;
+  maxEntries?: number;
+  onDecision?: (
+    decision: "cache_hit" | "provider_call" | "rejected",
+  ) => void;
+}
+
+type ProviderRequest = {
+  actorId: string;
+  cacheKey?: string;
+};
+
+export class ProviderRequestGate {
+  private readonly usage = new Map<
+    string,
+    { windowStartedAt: number; calls: number }
+  >();
+  private readonly cache = new Map<
+    string,
+    { expiresAt: number; pending: Promise<unknown> }
+  >();
+
+  constructor(
+    private readonly policy: ProviderRequestPolicy,
+    private readonly clock: () => number = Date.now,
+  ) {}
+
+  async run<T>(
+    request: ProviderRequest,
+    load: () => Promise<T>,
+  ): Promise<T> {
+    const now = this.clock();
+    this.prune(now);
+    const cacheKey =
+      request.cacheKey === undefined
+        ? undefined
+        : `${request.actorId}:${request.cacheKey}`;
+    const cached = cacheKey === undefined ? undefined : this.cache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      this.policy.onDecision?.("cache_hit");
+      return cached.pending as Promise<T>;
+    }
+
+    const previous = this.usage.get(request.actorId);
+    const usage =
+      previous === undefined ||
+      now - previous.windowStartedAt >= this.policy.windowMs
+        ? { windowStartedAt: now, calls: 0 }
+        : previous;
+    if (usage.calls >= this.policy.limit) {
+      this.policy.onDecision?.("rejected");
+      throw new AppError({
+        code: "rate_limited",
+        source: "app-maps/provider-request-gate",
+        message: "The actor exceeded the bounded provider request window.",
+        userMessage: "Too many map requests were made. Please wait and retry.",
+      });
+    }
+    usage.calls += 1;
+    this.usage.set(request.actorId, usage);
+    this.policy.onDecision?.("provider_call");
+
+    const pending = load();
+    if (cacheKey !== undefined && this.policy.cacheTtlMs > 0) {
+      this.cache.set(cacheKey, {
+        expiresAt: now + this.policy.cacheTtlMs,
+        pending,
+      });
+    }
+    try {
+      return await pending;
+    } catch (error) {
+      if (cacheKey !== undefined) this.cache.delete(cacheKey);
+      throw error;
+    }
+  }
+
+  private prune(now: number): void {
+    for (const [key, value] of this.usage) {
+      if (now - value.windowStartedAt >= this.policy.windowMs)
+        this.usage.delete(key);
+    }
+    for (const [key, value] of this.cache) {
+      if (value.expiresAt <= now) this.cache.delete(key);
+    }
+    const maximum = this.policy.maxEntries ?? 500;
+    while (this.cache.size >= maximum) {
+      const oldest = this.cache.keys().next().value as string | undefined;
+      if (oldest === undefined) break;
+      this.cache.delete(oldest);
+    }
+  }
+}
+
 export interface DeliveryFeePolicy {
   baseFeeMinor: number;
   includedDistanceMetres: number;

@@ -1,7 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-describe("function runtime boundary", () => {
-  it("keeps the payment event name explicit", () => {
-    expect("charge.success").toBe("charge.success");
+import { createJsonProviderGateway } from "./provider-gateway";
+
+describe("JSON provider gateway", () => {
+  it("returns parsed provider JSON through an injected transport", async () => {
+    const fetcher = vi.fn(async () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ status: true }), { status: 200 }),
+      ),
+    ) as unknown as typeof fetch;
+    const gateway = createJsonProviderGateway(fetcher);
+
+    await expect(gateway.request("https://provider.test", {}, "test")).resolves
+      .toEqual({ status: true });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("maps provider throttling to a resource-exhausted callable error", async () => {
+    const fetcher = vi.fn(async () =>
+      Promise.resolve(
+        new Response("limited", { status: 429 }),
+      ),
+    ) as unknown as typeof fetch;
+    const gateway = createJsonProviderGateway(fetcher);
+
+    await expect(
+      gateway.request("https://provider.test", {}, "test"),
+    ).rejects.toMatchObject({ code: "resource-exhausted" });
   });
 });

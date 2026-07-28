@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertAccountArchiveTarget,
   assertAssignmentVersion,
+  assertFeeRuleEffectiveNow,
   assertCatalogMediaScope,
   assertForegroundLocationEligibility,
   assertFulfillmentTransition,
@@ -14,17 +15,47 @@ import {
   assertUserManagementScope,
   assertUserStatusTransition,
   isStoreOpenAt,
+  needsActionReasonsAfterAssignment,
   requirePaystackAuthorizationUrl,
   requirePaystackSecretForEnvironment,
   decideMerchantStoreSubmissionAction,
   decideCatalogImportCommit,
   decidePaystackWebhookAction,
+  hasUsableOpeningHours,
   stableCatalogImportItemId,
   stableCheckoutSessionId,
   stablePaystackReference,
 } from "./index";
 
 describe("trusted command policy", () => {
+  it("derives assignment action reasons without stale no-driver state", () => {
+    expect(
+      needsActionReasonsAfterAssignment([
+        "no_driver_assigned",
+        "refund_review",
+        "refund_review",
+      ]),
+    ).toEqual(["refund_review"]);
+    expect(needsActionReasonsAfterAssignment(["no_driver_assigned"])).toEqual([
+      "none",
+    ]);
+  });
+
+  it("rejects future fee-rule activation", () => {
+    expect(() =>
+      assertFeeRuleEffectiveNow(
+        "2026-07-29T00:00:00.000Z",
+        new Date("2026-07-28T00:00:00.000Z"),
+      ),
+    ).toThrow("current effective date");
+    expect(() =>
+      assertFeeRuleEffectiveNow(
+        "2026-07-27T00:00:00.000Z",
+        new Date("2026-07-28T00:00:00.000Z"),
+      ),
+    ).not.toThrow();
+  });
+
   it("keeps staff creation exclusive to super administrators", () => {
     expect(() =>
       assertTrustedCommandAccess("createStaffUser", "admin"),
@@ -274,9 +305,12 @@ describe("Phase 4 checkout and payment invariants", () => {
   });
 
   it("evaluates normal and overnight Johannesburg opening hours", () => {
+    const sunday = [{ day: 0 as const, closed: false, opensAt: "08:00", closesAt: "18:00" }];
+    expect(hasUsableOpeningHours([])).toBe(false);
+    expect(hasUsableOpeningHours([...sunday, ...sunday])).toBe(false);
     expect(
       isStoreOpenAt(
-        [{ day: 0, closed: false, opensAt: "08:00", closesAt: "18:00" }],
+        sunday,
         new Date("2026-07-26T10:00:00.000Z"),
       ),
     ).toBe(true);

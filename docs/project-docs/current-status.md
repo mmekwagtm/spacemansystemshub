@@ -89,6 +89,9 @@ accepted.
   Expo compatibility/Doctor, both Android exports, and non-mutating web
   foundations pass. Owner-operated cloud/provider/live/payment/full
   regression/device gates remain outstanding.
+- Root validation now includes a dependency-free architecture-boundary gate.
+  It rejects app-to-app and package-to-app imports, direct Firebase imports outside
+  explicit app adapters, and web/native cross-imports.
 
 ## Dependency and cleanup state
 

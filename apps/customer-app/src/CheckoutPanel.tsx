@@ -199,7 +199,8 @@ export function CheckoutPanel({
       });
       setQuote(result);
       setNotice("Authoritative delivery quote ready for review.");
-      setSessionToken(randomToken("address"));
+      setSessionToken(randomAddressSessionToken());
+      setIdempotencyKey(randomToken("checkout"));
     } catch (caught) {
       setError(errorMessage(caught));
     }

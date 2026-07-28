@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   CART_SCHEMA_VERSION,
@@ -103,5 +103,61 @@ describe("versioned one-store cart", () => {
     expect(cart.getState().hydrated).toBe(true);
     expect(cart.getState().lines).toEqual([]);
     expect(storage.value).toBeNull();
+  });
+
+  it("finishes hydration when reading storage rejects", async () => {
+    const setItem = vi.fn();
+    const cart = createCartStore({
+      storage: {
+        getItem: vi.fn().mockRejectedValue(new Error("storage unavailable")),
+        removeItem: vi.fn(),
+        setItem,
+      },
+    });
+
+    await expect(cart.hydrate()).resolves.toBeUndefined();
+    expect(cart.getState().hydrated).toBe(true);
+    expect(cart.getState().addItem(item("one", "first")).status).toBe("added");
+    await cart.flushPersistence();
+    expect(setItem).toHaveBeenCalledOnce();
+  });
+
+  it("finishes corrupt-payload cleanup when removal rejects", async () => {
+    const cart = createCartStore({
+      storage: {
+        getItem: vi
+          .fn()
+          .mockResolvedValue('{"version":1,"lines":[{"bad":true}]}'),
+        removeItem: vi.fn().mockRejectedValue(new Error("read only")),
+        setItem: vi.fn(),
+      },
+    });
+
+    await expect(cart.hydrate()).resolves.toBeUndefined();
+    expect(cart.getState().hydrated).toBe(true);
+    expect(cart.getState().lines).toEqual([]);
+  });
+
+  it("continues persisting after a failed write", async () => {
+    const setItem = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("quota exceeded"))
+      .mockResolvedValue(undefined);
+    const cart = createCartStore({
+      storage: {
+        getItem: vi.fn().mockResolvedValue(null),
+        removeItem: vi.fn(),
+        setItem,
+      },
+    });
+    await cart.hydrate();
+
+    cart.getState().addItem(item("one", "first"));
+    await cart.flushPersistence();
+    cart.getState().updateQuantity("first", 2);
+    await cart.flushPersistence();
+
+    expect(setItem).toHaveBeenCalledTimes(2);
+    expect(setItem.mock.calls[1]?.[1]).toContain('"quantity":2');
   });
 });

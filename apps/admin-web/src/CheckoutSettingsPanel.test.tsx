@@ -6,7 +6,10 @@ import type { CheckoutAdminService } from "@spaceman/app-services";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CheckoutSettingsPanel } from "./CheckoutSettingsPanel";
+import {
+  CheckoutSettingsPanel,
+  parseRandAmountMinor,
+} from "./CheckoutSettingsPanel";
 
 function service(): CheckoutAdminService {
   return {
@@ -33,6 +36,15 @@ function service(): CheckoutAdminService {
 afterEach(cleanup);
 
 describe("Phase 4 checkout configuration", () => {
+  it("converts rand decimals to cents without floating-point rounding", () => {
+    expect(parseRandAmountMinor("0.07", "fee")).toBe(7);
+    expect(parseRandAmountMinor("20.01", "fee")).toBe(2_001);
+    expect(parseRandAmountMinor("20.10", "fee")).toBe(2_010);
+    expect(() => parseRandAmountMinor("20.001", "fee")).toThrow(
+      "at most two decimal places",
+    );
+  });
+
   it("prefills the approved zone and fee values without auto-saving", async () => {
     const checkout = service();
     render(

@@ -17,6 +17,7 @@ import {
   assertTrustedCommandAccess,
   assertUserManagementScope,
   assertUserStatusTransition,
+  needsActionReasonsAfterAssignment,
 } from "@spaceman/app-functions";
 import {
   archiveOrRedactAccountInputSchema,
@@ -687,6 +688,11 @@ export const assignDriver = onCall(
       }
 
       const nextVersion = currentVersion + 1;
+      const needsAction =
+        order.needsAction === undefined ? {} : asRecord(order.needsAction);
+      const reasons = needsActionReasonsAfterAssignment(
+        Array.isArray(needsAction.reasons) ? needsAction.reasons : [],
+      );
       transaction.set(assignmentReference, {
         id: assignmentReference.id,
         orderId: input.orderId,
@@ -709,6 +715,10 @@ export const assignDriver = onCall(
           version: nextVersion,
           driverId: input.driverId,
           assignedAt: FieldValue.serverTimestamp(),
+        },
+        needsAction: {
+          reasons,
+          updatedAt: FieldValue.serverTimestamp(),
         },
         updatedAt: FieldValue.serverTimestamp(),
         updatedBy: actor.uid,

@@ -122,3 +122,12 @@ server. The callback is informational only. Customer verification and signed
 webhooks use one transactional reconciler so retries and races converge on one
 paid order. Rollback disables new checkout/payment flags while leaving the
 webhook available for already-initialized transactions.
+
+## AD-014: Enforced boundaries and recoverable integrations
+
+Root validation enforces app/package, Firebase-adapter, and platform boundaries.
+Provider HTTP I/O uses narrow interfaces; registration stays in runtime files.
+Cross-system changes must define idempotency, retry ownership, compensation,
+and failure tests. Provider adapters require limits and observable decisions.
+Source, deployment, and owner acceptance remain separate; `current-status.md`
+is canonical.
