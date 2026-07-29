@@ -519,6 +519,7 @@ Do not infer deployment from local source. Run from
 `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
+git rev-parse HEAD
 git diff --check
 corepack pnpm docs:check
 corepack pnpm typecheck
@@ -712,7 +713,7 @@ PHASE4_CUSTOMER_EMAIL=
 PHASE4_CUSTOMER_PASSWORD=
 PHASE4_STORE_NAME=
 PHASE4_ITEM_NAME=
-PHASE4_ADDRESS_QUERY=Mabopane Central City
+PHASE4_ADDRESS_QUERY="Mabopane Central City"
 ```
 
 The named store/item must already be active, approved, open, available, above
@@ -749,8 +750,13 @@ Start the current Customer App bundle in Expo Go from
 
 ```sh
 source /home/mmekwa/.nvm/nvm.sh
-corepack pnpm exec expo start --go --lan
+PHASE4_RUN_ID="phase4_note9_$(date +%Y%m%d_%H%M%S)"
+EXPO_PUBLIC_PHASE4_TEST_RUN_ID="$PHASE4_RUN_ID" \
+  corepack pnpm exec expo start --go --lan
 ```
+
+Keep this shell open: after stopping Metro, use the same `$PHASE4_RUN_ID` for
+the exact cleanup call.
 
 Open the displayed project in Expo Go on the Note9. Before exercising the
 workflow, clear old device logs from
@@ -770,9 +776,22 @@ markers from `/home/mmekwa/Desktop/projects/spacemansystems`:
 adb logcat -d -b main -b crash | rg 'FATAL EXCEPTION|AppError|Required public Firebase|PAYSTACK|GOOGLE_MAPS'
 ```
 
-Do not capture credentials, full addresses, provider tokens, or payment data.
-Stop Metro with `Ctrl+C` after the check. Self-contained EAS preview-APK
+Avoid deliberately entering credentials, provider tokens, or payment data into
+new captures. Retain owner-provided evidence containing personal or provider
+fields when it is needed for acceptance, and record that exposure for owner
+review. Stop Metro with `Ctrl+C` after the check. Self-contained EAS preview-APK
 acceptance is deferred to the end of Phase 7 and is not part of Phase 4.
+
+Customer App passes `EXPO_PUBLIC_PHASE4_TEST_RUN_ID` into checkout creation when
+that development-only variable is set. Use a fresh exact tag for the device
+run, then call `cleanupTestFixtures` with the same tag and verify zero Auth and
+Firestore residue. A retained untagged order from an earlier run does not count
+as cleanup evidence. Run `phase4_note9_20260729_0002` already proved the
+current Expo Go catalog/store/item, tagged quote, and exact cleanup path. The
+owner accepted Phase 4 on the combined native and tagged-backend record; this
+does not claim that all listed behaviors and payment outcomes ran in one tagged
+device session. A future checkout regression should close that same-run gap.
+The lack of a standalone owner cleanup helper remains a tooling improvement.
 
 ## 20. Rollback and secret retirement
 
@@ -780,28 +799,34 @@ If a Phase 4 problem appears, use Admin Web to disable **new** customer
 ordering/Maps quote/payment initialization. Do not undeploy or block
 `handlePaystackWebhook`; already-initialized payments must still reconcile.
 
-Only after version `3` completes a successful payment, repeat verification, and
-webhook replay without duplication, disable version `2`. Run from
+Version `2` is already disabled. Do not reactivate or rotate a secret without
+separate approval. Verify the current state from
 `/home/mmekwa/Desktop/projects/spacemansystems`:
 
 ```sh
-gcloud secrets versions disable 2 --secret=PAYSTACK_SECRET_KEY --project=spacemansystemsbackend
 gcloud secrets versions list PAYSTACK_SECRET_KEY --project=spacemansystemsbackend --format='table(name,state,createTime)'
 ```
 
+Retirement preceded the retained signed-webhook replay evidence. The owner
+accepted that limitation for development Phase 4; proving a current
+rollback/rotation path remains required before Phase 7 production acceptance.
+
 ## 21. Record and accept Phase 4 evidence
 
-Store redacted terminal evidence under
-`docs/live-test-data-docs/terminal-data/terminal-data-phase-4` and only the
+Store Phase 4 terminal evidence under
+`docs/live-test-data-docs/terminal-data/terminal-data-phase-4.md` and the
 necessary screenshots under
 `docs/live-test-data-docs/images/phase4-images/`. Record each exact
 `testRunId`, payment outcome, replay result, cleanup verdict, browser/device
-gate, and reviewed source revision without recording secrets or account
-identifiers.
+gate, and reviewed source revision. Owner-provided evidence containing
+personal data or provider fields remains part of the evidence set when needed
+for acceptance; record the exposure for owner review.
 
-Phase 4 reaches **100%** and overall accepted progress reaches **62.5%** only
-after every checklist item in `docs/plans-docs/PLAN-phase-4.md` passes and the
-owner explicitly approves the redacted evidence.
+The owner explicitly approved the combined evidence on 2026-07-29. Phase 4 is
+**100% accepted** and overall accepted progress is **62.5%**. The acceptance
+does not convert missing same-run native checks or rollback proof into executed
+evidence; those limitations remain recorded in
+`docs/project-docs/phase-4-evidence.md`.
 
 ## Native Expo Doctor checks
 
@@ -862,8 +887,25 @@ env -u DEBUG corepack pnpm dlx expo-doctor
   `6e06e1a9-985b-439f-abeb-d2489c0ac25e` contains the SDK-compatible
   `expo-network` correction. Wi-Fi was restored, the crash buffer was empty,
   and the exact temporary Driver denial fixture left zero residue.
-- Phase 3 is 100% accepted. No Phase 2 or Phase 3 acceptance action remains;
-  rerun the relevant sections only after a behavior or backend change.
+- 2026-07-28: Phase 4 backend runs
+  `phase4_checkout_1785263019703_447d3a33` and
+  `phase4_checkout_1785263181986_e559bf05` passed unpaid/no-order and
+  successful-payment/repeat-verification paths with exact Auth and Firestore
+  cleanup. Later successful run
+  `phase4_checkout_1785274758928_78d1be8d` repeated the exactly-once and
+  cleanup result. The named Maps key resource is restricted to exactly the
+  three approved APIs; raw Admin and Paystack captures show active test
+  configuration. Phase 3 Playwright passed 8/8, and isolated Phase 4 run
+  `phase4_playwright_1785267576141_fde0c50e` passed 1/1. On 2026-07-29,
+  `phase4_note9_20260729_0002` passed the current Expo Go catalog/cart,
+  sign-in, address, quote, and exact cleanup path. The owner reviewed the
+  corrected 7,391 m route, raw native payment/order captures, tagged native
+  quote cleanup, tagged backend payment cleanup, provider/Admin configuration,
+  and webhook replay, then explicitly accepted Phase 4. Remaining same-run
+  native behavior/payment depth, clean deployment/source binding, and secret
+  rollback proof are post-acceptance improvements, not completed evidence.
+- Phases 0 through 4 are 100% accepted. Rerun the relevant sections only after
+  a behavior or backend change; Phase 5 is the next acceptance gate.
 
 ## Official references
 

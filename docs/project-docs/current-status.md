@@ -3,7 +3,8 @@
 ## Accepted baseline
 
 - Phase 0 (architecture truth), Phase 1 (monorepo baseline), Phase 2
-  (identity and security), and Phase 3 (marketplace) are complete.
+  (identity and security), Phase 3 (marketplace), and Phase 4 (Maps, checkout,
+  and payment) are complete.
 - The canonical workspace contains three Vite/React web apps, two Expo Router
   native apps, shared `@spaceman/*` packages, and a separate Firebase Functions
   runtime.
@@ -59,11 +60,12 @@ automated, five-app/manual, physical-device, and redacted evidence gates pass.
 - Routes, serviceability, delivery fees, checkout, Paystack, orders,
   fulfillment, App Check enforcement, and production remain outside Phase 3.
 
-## Phase 4 source state
+## Phase 4 accepted state
 
 Phase 4 (Maps, checkout, and payment) source and complete local source gate
-pass. The nine development Functions are active, but Phase 4 is not yet
-accepted.
+pass. Deployment, backend matrices, Customer Web, combined Galaxy Note9 Expo Go
+and native-payment evidence, exact cleanup, and owner review also pass. The
+owner explicitly accepted Phase 4 on 2026-07-29.
 
 - Customer Web and Customer App share a versioned one-store cart, authoritative
   address/quote workflow, hosted Paystack launch, focus/resume reconciliation,
@@ -81,14 +83,57 @@ accepted.
   Places API (New), and Routes services. The address callable was redeployed,
   returned five Mabopane suggestions on the Galaxy Note9, and no longer
   surfaces the incorrect identity-service error.
-- A live-matrix attempt verified isolated users, versioned configuration, an
-  eligible catalog, three-character validation, and exact cleanup. It exposed
-  an overlong test/Web Places session token; source now enforces Google's
-  36-character limit. The complete matrix rerun remains pending.
+- Development Rules/indexes and all nine Phase 4 Functions deployed
+  successfully; all nine services returned the expected public transport
+  invoker binding.
+- Live runs `phase4_checkout_1785263019703_447d3a33` and
+  `phase4_checkout_1785263181986_e559bf05` passed the Maps, security,
+  unpaid/no-order, successful-payment, exactly-once, and repeat-verification
+  cases with exact Auth and Firestore cleanup.
+- Later successful run `phase4_checkout_1785274758928_78d1be8d` repeated the
+  exactly-once and repeat-verification path with exact Auth and Firestore
+  cleanup.
+- Phase 3 Playwright regression passed 8/8. Isolated Phase 4 Customer Web run
+  `phase4_playwright_1785267576141_fde0c50e` passed 1/1.
 - Focused and root documentation, type-check, lint, 76 tests, all builds,
-  Expo compatibility/Doctor, both Android exports, and non-mutating web
-  foundations pass. Owner-operated cloud/provider/live/payment/full
-  regression/device gates remain outstanding.
+  Expo compatibility/Doctor, and non-mutating web foundations pass. A fresh
+  Customer App Android export also passed on 2026-07-29.
+- Raw Galaxy Note9 captures show address selection, a quote, hosted test
+  payment, return, paid-order reconciliation, and an abandoned/no-order state.
+  The later tagged Expo Go rerun cleared the persisted cart, rendered `store to
+  r`, added `Kiddos Meal`, completed sign-in, selected a Mabopane address, and
+  displayed the R47.57 / 7.4 km / R97.57 server quote. Its exact cleanup
+  deleted one checkout session and returned zero remaining. The targeted
+  crash/error query returned no matching markers. The owner accepted this
+  combined evidence without claiming that every behavior and payment outcome
+  ran in the same tagged native session; the missing same-run matrix remains a
+  post-acceptance test-depth risk.
+- The named Maps server-key resource is proven restricted to the exact three
+  approved APIs, and raw Admin/provider captures show active configuration.
+- Two signed webhook replays of retained reference
+  `spc_checkout-d405ae2dc61a92bd` returned `reconciled:true,status:paid`; the
+  retained checkout is consumed with exactly one paid order and one payment
+  event, but it has no `testRunId` and is not cleanup evidence. Paystack secret
+  version `2` was disabled before this replay was evidenced.
+- Customer App passes an optional development-only
+  `EXPO_PUBLIC_PHASE4_TEST_RUN_ID` to checkout creation. The tagged Expo Go
+  quote exercised that wiring and cleaned up exactly. The retained native order
+  remains untagged and is not counted as tagged cleanup evidence.
+- The reviewed base revision is
+  `128c58ea5d8f8f3c74b8e34f74d67f5e2a6b1fa0`; the present Customer App
+  acceptance harness also contains a seven-line uncommitted `testRunId` delta.
+  The deployment record is not bound cryptographically to an exact clean
+  revision.
+- Earlier captured quotes show 219.5–238.3 km routes for Mabopane addresses
+  while clamping delivery to R80. The active development store origin was
+  corrected through `upsertStore` from longitude `26.1007` to `28.1007`; a
+  fresh tagged quote now returns 7,391 m / 791 s and R47.57 delivery, leaving
+  zero tagged checkout residue. The owner accepted this exact-locality route
+  and fee policy for Phase 4. A versioned maximum-distance boundary remains a
+  post-acceptance product/configuration improvement.
+- One native capture exposes historical Phase 3-named stores in the customer
+  catalog, and other captures show a generic service error persisting after
+  cart/account state changes. Neither is final acceptance evidence.
 - Root validation now includes a dependency-free architecture-boundary gate.
   It rejects app-to-app and package-to-app imports, direct Firebase imports outside
   explicit app adapters, and web/native cross-imports.
@@ -200,19 +245,25 @@ gates:
 
 ## Remaining later-phase actions
 
-- Confirm the deployed Rules/indexes and all exact transport bindings, confirm
-  rotated Paystack test secret version `3`, and configure the test webhook.
-- Pass the self-cleaning live matrix, successful and failed/abandoned test
-  payments, replay checks, isolated Phase 4 Playwright, Customer Web review,
-  and Galaxy Note9 Expo Go acceptance.
+- Begin Phase 5 with the paid-to-delivered lifecycle across Merchant, Admin,
+  Driver, and Customer, including assignment-version safeguards.
+- Address Phase 4 post-acceptance risks when that area is next changed:
+  quote invalidation for delivery metadata, Places token ownership, blocked
+  popup recovery, transaction-level reconciliation tests, native behavior
+  tests, strict cleanup verification, run-specific evidence output, and an
+  executable Expo Go cleanup helper. Exact locations and reasons are recorded
+  in `docs/project-docs/phase-4-evidence.md`.
+- Decide and version a maximum service distance before relying on the fee cap
+  as a serviceability boundary.
+- Before production, add distributed Maps quota control, stage App Check,
+  prove current Paystack secret rollback/rotation, and bind deployment evidence
+  to an exact clean source revision.
 - Build and accept self-contained EAS preview APKs only at the end of Phase 7
   as part of final quality and launch.
-- No Phase 2 or Phase 3 acceptance action remains.
+- No Phase 0 through Phase 4 acceptance action remains.
 
 ## Next phase gate
 
-Phase 3 is **100% accepted** and overall accepted progress is **50%**. Phase 4
-(Maps, checkout, and payment) source and local validation pass but remain
-unaccepted until the remaining provider, live-payment, cleanup, full browser,
-and physical-device evidence passes. Do not mark Phase 4 complete or move
-overall accepted progress to **62.5%** before that explicit owner review.
+Phase 4 is **100% accepted** and overall accepted progress is **62.5%**. Phase
+5 (Fulfillment) is next. Overall progress must not move to **75%** until the
+Phase 5 exit gate passes and the owner explicitly accepts its evidence.

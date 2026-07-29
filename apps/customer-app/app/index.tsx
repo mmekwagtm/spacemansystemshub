@@ -39,6 +39,7 @@ const steps = [
 ];
 
 export default function CustomerHomeScreen() {
+  const checkoutTestRunId = process.env.EXPO_PUBLIC_PHASE4_TEST_RUN_ID?.trim();
   const [session, setSession] = useState<IdentitySession | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -336,6 +337,7 @@ export default function CustomerHomeScreen() {
           online={!catalogOffline}
           onRequireAccount={() => setShowAccount(true)}
           {...(session ? { customerId: session.uid } : {})}
+          {...(checkoutTestRunId ? { testRunId: checkoutTestRunId } : {})}
         />
         {steps.map((step) => (
           <View key={step} style={styles.row}>

@@ -1,8 +1,10 @@
 # API Cost Control
 
 The accepted Phase 3 development backend connects Firebase and a restricted
-Places API adapter. Nine Phase 4 Functions are active, but Phase 4 remains
-unaccepted pending provider, payment, cleanup, browser, and device gates.
+Places API adapter. Nine Phase 4 Functions, Rules, indexes, and transport
+bindings are active. Phase 4 is **100% accepted** based on the combined
+backend, Customer Web, Galaxy Note9, provider, replay, and cleanup evidence.
+Signed webhook replay passed against a retained development reference.
 
 ## Maps
 
@@ -11,13 +13,22 @@ not call Google APIs directly. Address search and routing use debounce, session
 tokens, field masks, caching, lazy loading, request limits, and structured
 provider errors.
 
-Source adds per-runtime actor budgets, a 20-second address cache, bounded
-instances, and decision logs. These changes are not deployed by this change;
-Firebase and Google quotas remain the cross-instance cost boundary.
+The deployed Phase 4 runtime uses per-actor budgets, a 20-second address cache,
+bounded instances, and decision logs. Firebase and Google quotas remain the
+cross-instance cost boundary. Process-local budgets are not a distributed
+quota; add a shared limiter and stage App Check before production traffic.
 
 Checkout fails closed when serviceability, distance, or the delivery fee cannot
 be authoritatively calculated. Driver location is foreground-only in V1 and is
 throttled by movement, time, and active assignment state.
+
+Earlier visual evidence showed exact-locality routes of 219.5–238.3 km while
+the fee was clamped to R80. The affected store origin was corrected through
+the trusted `upsertStore` Function. A fresh tagged quote then returned 7,391 m,
+791 s, R47.57 delivery, and R97.57 total before exact cleanup returned zero.
+The owner accepted this exact-locality route for Phase 4. A versioned maximum
+service distance remains a recommended post-acceptance control because the fee
+cap is not a serviceability boundary.
 
 Phase 4 address autocomplete begins after three characters, is debounced by
 350 ms, uses one Google session token per selection flow, requests at most five

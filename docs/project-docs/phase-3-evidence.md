@@ -249,5 +249,6 @@ and the acceptance source waits for visible records before counting them.
   serial. The detailed redacted record is
   `docs/live-test-data-docs/terminal-data/phase3-native-device-acceptance-2026-07-26.md`.
 
-Every Phase 3 exit item passes. Phase 4 is unblocked but not started. No
+Every Phase 3 exit item passes. Phase 4 was explicitly accepted on 2026-07-29,
+so overall accepted project progress is **62.5%** and Phase 5 is next. No
 production deployment or push is included.

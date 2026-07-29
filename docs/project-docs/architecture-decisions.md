@@ -131,3 +131,25 @@ Cross-system changes must define idempotency, retry ownership, compensation,
 and failure tests. Provider adapters require limits and observable decisions.
 Source, deployment, and owner acceptance remain separate; `current-status.md`
 is canonical.
+
+## AD-015: Phase 4 composite acceptance and route-policy follow-up
+
+The owner accepted Phase 4 on 2026-07-29 from the combined source, deployment,
+provider/Admin, backend, Customer Web, Galaxy Note9 Expo Go, hosted-payment,
+webhook-replay, and exact-cleanup record. This decision does not assert that
+every native behavior and payment outcome ran in one tagged device session.
+Same-run native coverage, strict cleanup tooling, and an exact clean
+deployment-to-source binding remain post-acceptance quality improvements.
+
+The corrected active-store origin produced a validated 7,391 m exact-locality
+route and the server-owned R47.57 fee. That policy is accepted for Phase 4. A
+maximum service distance is not currently part of the zone contract; if
+approved later, it must be versioned, server-enforced, fail closed, and covered
+across types, validation, Admin configuration, Functions, tests, and docs.
+
+Owner-provided evidence containing account, address, order, payment,
+local-network, merchant, or provider fields remains valid acceptance evidence
+with its exposure disclosed. Phase 4 acceptance does not authorize production:
+distributed Maps quota control, staged App Check, Paystack secret
+rollback/rotation proof, and final self-contained preview-APK acceptance remain
+Phase 7 gates.

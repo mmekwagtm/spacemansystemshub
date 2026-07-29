@@ -298,5 +298,6 @@ active-scope/session, sign-out, suspended-user denial, and absence of
 marketplace controls also passed. Final screenshots and terminal observations
 are redacted.
 
-Every exit item now passes. Phase 3 is **100% accepted**, Phase 4 is unblocked
-but not started, and overall accepted project progress is **50%**.
+Every exit item now passes. Phase 3 is **100% accepted**. Phase 4 was explicitly
+accepted on 2026-07-29, so overall accepted project progress is **62.5%** and
+Phase 5 is next.

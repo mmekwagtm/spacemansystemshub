@@ -1,6 +1,6 @@
 # Roadmap Status
 
-Overall accepted progress is **50%**: four of the fixed eight phases have
+Overall accepted progress is **62.5%**: five of the fixed eight phases have
 passed their exit gates.
 
 <!-- prettier-ignore -->
@@ -10,7 +10,7 @@ passed their exit gates.
 | 1. Monorepo baseline | 100% | Complete | The pnpm workspace, five app shells, shared packages, dependency state, full validation, three-web-app Playwright smoke, and owner-reported five-app live smoke pass. |
 | 2. Identity and security | 100% | Complete | Shared customer/staff flows, canonical guards, trusted provisioning/claims, cross-role/user/store/driver denials, replay/inactive denial, Rules, App Check decision, exact tagged cleanup, and current five-app manual identity/session evidence pass. |
 | 3. Marketplace | 100% | Complete | Canonical marketplace source/deployment, live Firebase, web matrix, import/media/security boundaries, consistent Customer Web/App catalog, preview-APK physical checks, five-app manual acceptance, and redacted evidence pass. |
-| 4. Maps, checkout, and payment | 50% | Source/local gate complete; acceptance pending | Server-verified serviceability/fee and Paystack verification create exactly one paid order per provider reference; Functions and live Mabopane suggestions pass, while live-payment, full browser, and complete device evidence remain. |
+| 4. Maps, checkout, and payment | 100% | Complete | Source, deployment, three zero-residue runs, payment/repeat verification, signed webhook replay, provider/Admin configuration, Customer Web, composite Galaxy Note9 evidence, exact cleanup, documented limitations, and explicit owner acceptance pass. |
 | 5. Fulfillment | 0% | Not started | The paid-to-delivered lifecycle passes across merchant, admin, driver, and customer with assignment/version safeguards. |
 | 6. Operations | 0% | Not started | Failures are visible, auditable, notified, recoverable, and financially reconciled with retention and settlement evidence. |
 | 7. Quality and launch | 0% | Not started | Production acceptance, observability, backups, runbooks, security review, final self-contained EAS preview-APK acceptance, Hosting/EAS releases, and rollback evidence pass. |
@@ -39,13 +39,28 @@ Customer Web/App active-catalog parity, offline fallback, pagination,
 session/sign-out, inactive-data hiding, Driver regression, and redacted
 evidence all pass.
 
-Phase 4 source now implements the shared cart, server-only Places/Routes quote,
+Phase 4 implements the shared cart, server-only Places/Routes quote,
 versioned Mabopane fees, Admin controls, hosted Paystack initialization,
 transactional verification/webhook reconciliation, exactly-once order
 creation, Rules/indexes, tests, and owner-run harnesses. The complete local
-source gate and non-mutating web foundation smoke pass. The nine development
-Functions are active, and a corrected Places API (New) restriction/parser now
-returns live Mabopane suggestions on the Galaxy Note9. Phase 4 remains **50%
-in progress**, not accepted. Overall accepted progress remains **50%** until
-the remaining provider, payment, cleanup, full Playwright, Galaxy Note9, and
-evidence gates pass.
+source gate, deployment, one unpaid and two successful zero-residue backend
+runs, hosted payment with repeat verification, provider/Admin configuration,
+unchanged Phase 3 regression, and isolated Customer Web acceptance pass.
+Galaxy Note9 captures show a partial end-to-end flow. A retained development
+reference now has two successful signed webhook replays with one paid order and
+one payment event, and the active store origin was corrected through the
+trusted Function. A tagged corrected-origin quote returned 7,391 m and exact
+cleanup returned zero. The later tagged Expo Go rerun resolved the catalog/cart
+blocker by rendering `store to r`, adding `Kiddos Meal`, and displaying the
+authoritative quote before exact cleanup. The remaining device checklist and
+tagged native payment/cleanup were not completed as one same-run matrix. The
+owner reviewed that limitation with the broader evidence on 2026-07-29 and
+accepted the corrected 7,391 m exact-locality route plus the composite native,
+backend, browser, provider, webhook, and cleanup record.
+
+Phase 4 is therefore **100% accepted**, and overall accepted progress is
+**62.5%**. Its same-run native test depth, maximum-distance policy, cleanup
+tooling, distributed Maps quota, App Check, Paystack rollback proof, and clean
+deployment/source binding remain explicit post-acceptance improvements. Phase 5
+(Fulfillment) is the current milestone; production remains blocked until Phase
+7.

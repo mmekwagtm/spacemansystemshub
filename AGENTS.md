@@ -171,6 +171,8 @@ Phase 7 quality-and-launch gate. Testing, commits, and deployments are manual.
 A production deployment still requires an explicit production acceptance
 review and approval.
 
+Include screenshots or any other form of evidance that contain personal data or secrets as valiad evidance dont discard or exclude them 
+
 ## 8. Working Style and Documentation
 
 Before adding a dependency, explain why it is needed and keep it out of

@@ -2,16 +2,17 @@
 
 ## Status
 
-Phase 4 source and the complete local source gate pass. The nine development
-Functions are active and Note9 address suggestions now pass, but final
-Rules/index/IAM confirmation, self-cleaning live tests, Paystack test
-transactions, Phase 3/Phase 4 owner Playwright acceptance, and Galaxy Note9
-checkout acceptance remain gates. Phase 4 is not accepted until every exit
-item below passes.
+Phase 4 is **100% accepted** as of 2026-07-29. Development Rules/indexes, all
+nine Functions and transport bindings, three logged self-cleaning backend runs,
+Phase 3 regression, isolated Customer Web acceptance, provider/Admin
+configuration, hosted test payments, signed webhook replay, Galaxy Note9 Expo
+Go evidence, exact cleanup, and explicit owner review support the decision.
 
-Overall accepted project progress remains **50%** while Phase 4 evidence is
-incomplete. After every Phase 4 gate passes, Phase 4 becomes **100% accepted**
-and overall accepted progress becomes **62.5%**.
+Overall accepted project progress is **62.5%**. The owner accepted the combined
+evidence without claiming that every native behavior and payment outcome ran in
+one tagged device session. Those test-depth and rollback limitations remain
+post-acceptance improvements recorded in
+`docs/project-docs/phase-4-evidence.md`.
 
 ## Scope
 
@@ -148,16 +149,35 @@ Development rollout is owner-operated:
 10. Run Phase 3 Playwright regression and isolated Phase 4 Playwright.
 11. Run Customer Web acceptance and Customer App Expo Go acceptance on the
     Galaxy Note9 after the Android compatibility/export gates pass.
-12. Review redacted evidence and verify zero tagged Auth/Firestore residue.
-13. Disable secret version `2` only after version `3` has reconciled a
-    successful payment.
+12. Review collected evidence and verify zero tagged Auth/Firestore residue.
+13. Record the current secret-retirement state. Version `2` is already
+    disabled; do not reactivate or rotate a secret without separate approval.
+    Retirement preceded the signed-webhook replay evidence, so a new
+    rollback/rotation proof remains a Phase 7 production-readiness action.
 
 The 2026-07-27 Galaxy Note9 Expo Go smoke exposed an address-search failure.
 On 2026-07-28 the server key was corrected for Places API (New), valid
 predictions without secondary text were accepted, and the Note9 returned five
-Mabopane suggestions. The full quote/payment/device workflow is still pending.
-EAS preview-APK acceptance is outside Phase 4 and is deferred to the end of
-Phase 7.
+Mabopane suggestions. Later evidence records one unpaid and two successful
+zero-residue backend runs, successful hosted payments with repeat
+verification, Phase 3 Playwright at 8/8, and isolated Phase 4 Playwright at
+1/1. Raw Note9 captures also show the quote, hosted payment, return, paid
+order, and an abandoned/no-order state, but they do not prove every device
+check. On 2026-07-29 the active store origin was corrected through
+`upsertStore`, a signed webhook replay returned `reconciled:true` twice while
+leaving one paid order and one payment event, and a tagged corrected-origin
+quote returned 7,391 m before exact cleanup returned zero. A later tagged
+Expo Go rerun cleared the persisted cart, rendered `store to r`, added
+`Kiddos Meal`, completed sign-in, selected a Mabopane address, and displayed
+the R47.57 / 7.4 km / R97.57 server quote. Its exact cleanup deleted one
+checkout session and returned zero remaining. The catalog/cart blocker is
+resolved. On 2026-07-29 the owner accepted the combined native, backend,
+browser, provider, and cleanup evidence. The accepted current route policy uses
+the corrected 7,391 m locality route and authoritative fee; a maximum-distance
+guard, a same-run tagged native payment matrix, deeper device behavior tests,
+and secret rollback proof remain documented post-acceptance improvements.
+EAS preview-APK acceptance remains outside Phase 4 and is deferred to the end
+of Phase 7.
 
 ## Exit checklist
 
@@ -169,18 +189,24 @@ Phase 7.
 - [x] Focused shared, Functions, Admin, Customer Web, and Customer App tests
       pass.
 - [x] Complete root validation passes after final source review.
-- [ ] Phase 3 Playwright regression passes unchanged.
-- [ ] Phase 4 development Rules, indexes, and Functions are deployed.
-- [ ] Places plus Routes key restriction and Paystack test webhook are
+- [x] Phase 3 Playwright regression passes unchanged.
+- [x] Phase 4 development Rules, indexes, and Functions are deployed.
+- [x] Places plus Routes key restriction and Paystack test webhook are
       confirmed.
-- [ ] Secret version `3` is confirmed as rotated test mode and reconciles a
+- [x] Secret version `3` is confirmed as rotated test mode and reconciles a
       successful payment.
-- [ ] Self-cleaning Maps/security/payment matrix passes with zero residue.
-- [ ] Successful, failed/abandoned, repeat-verification, and webhook-replay
-      evidence passes.
-- [ ] Customer Web owner acceptance passes.
-- [ ] Customer App passes Galaxy Note9 Expo Go acceptance without crashes or
-      sensitive evidence after compatibility and Android export checks pass.
-- [ ] The owner reviews redacted evidence and explicitly accepts Phase 4.
+- [x] Self-cleaning Maps/security/payment matrix passes with zero residue.
+- [x] Successful payment, backend and hosted abandonment/no-order behavior,
+      repeat verification, and signed-webhook replay pass. Two signed replay
+      attempts returned `reconciled:true,status:paid`; Firestore retained one
+      paid order and one payment event.
+- [x] Customer Web owner acceptance passes.
+- [x] Customer App Galaxy Note9 Expo Go catalog, cart, sign-in, address, and
+      server-quote path passes under an exact tag with zero-residue cleanup.
+- [x] The owner accepts the combined Galaxy Note9 payment/order captures,
+      tagged quote/cleanup, and tagged backend payment/cleanup evidence while
+      retaining the missing same-run native matrix as a post-acceptance risk.
+- [x] The owner reviewed the collected evidence and explicitly accepted Phase 4
+      on 2026-07-29.
 
 Production remains blocked until Phase 7 acceptance.

@@ -34,6 +34,7 @@ import { customerCheckoutService } from "./identity";
 interface CheckoutPanelProps {
   cartStore: CartStore;
   customerId?: string;
+  testRunId?: string;
   checkoutAllowed: boolean;
   online: boolean;
   onRequireAccount(): void;
@@ -59,6 +60,7 @@ function errorMessage(error: unknown): string {
 export function CheckoutPanel({
   cartStore,
   customerId,
+  testRunId,
   checkoutAllowed,
   online,
   onRequireAccount,
@@ -196,6 +198,7 @@ export function CheckoutPanel({
           label: label.trim() || "Delivery address",
           ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
         },
+        ...(testRunId ? { testRunId } : {}),
       });
       setQuote(result);
       setNotice("Authoritative delivery quote ready for review.");

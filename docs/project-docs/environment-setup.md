@@ -30,14 +30,15 @@ without explicit approval.
 - The nine Phase 4 Functions are active in `africa-south1`.
   `searchDeliveryAddresses` was redeployed and live-verified on 2026-07-28
   after enabling Places API (New) and accepting valid predictions without
-  secondary text. Current Rules/indexes still require the final rollout
-  evidence check before Phase 4 acceptance.
+  secondary text. Phase 4 Rules/indexes and all nine transport bindings are
+  deployed and confirmed. The owner accepted Phase 4 on 2026-07-29.
 - FCM delivery, EAS production channels, and production configuration remain
   later-phase work. Development EAS projects are linked for both native apps.
-- Paystack secret version `3` is expected to be the rotated test key, but this
-  must be confirmed without printing it before Phase 4 deployment. Keep
-  version `2` enabled for rollback until version `3` reconciles a successful
-  test transaction.
+- Paystack secret version `3` is confirmed as test mode and has reconciled
+  successful development transactions. Version `2` was disabled before a
+  same-event signed-webhook replay was retained. This is an accepted
+  development limitation; a current rollback/rotation proof remains required
+  before Phase 7 production acceptance.
 
 ## Configuration rules
 
@@ -116,5 +117,18 @@ must finish with zero residue for its exact random `testRunId`.
 
 The Phase 4 live checkout script additionally covers checkout sessions, orders,
 payment/order events, notifications/outbox, fee rules, and delivery zones. It
-restores the prior singleton platform settings in `finally`, deletes only
-exact tagged records and generated Auth users, and verifies zero residue.
+restores the prior singleton platform settings in `finally` and deletes only
+exact tagged records and generated Auth users. Before it is relied on again,
+its emergency direct-Admin fallback should be separated from acceptance and
+its verifier should cover every scoped collection; otherwise a failed
+`cleanupTestFixtures` call and residue outside its current list can be masked.
+
+Customer Web Playwright injects its exact Phase 4 `testRunId`. Customer App
+accepts the optional development-only `EXPO_PUBLIC_PHASE4_TEST_RUN_ID` and
+passes it into checkout creation. The Note9 run
+`phase4_note9_20260729_0002` exercised the tag through quote creation and
+exact cleanup deleted its one checkout session with zero remaining. Use a fresh
+tag for each Expo Go run; the retained Note9 order predates this wiring and
+remains outside tagged cleanup. This Customer App wiring is currently a
+seven-line working-tree delta beyond reviewed base revision
+`128c58ea5d8f8f3c74b8e34f74d67f5e2a6b1fa0`, not a clean revision binding.
