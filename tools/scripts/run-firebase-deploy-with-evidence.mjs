@@ -48,6 +48,7 @@ const deploy = spawnSync(
     env: {
       ...process.env,
       FIREBASE_FUNCTIONS_DISCOVERY_OUTPUT_PATH: "true",
+      FUNCTIONS_DISCOVERY_TIMEOUT: "60",
     },
   },
 );
