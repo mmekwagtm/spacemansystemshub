@@ -791,7 +791,11 @@ current Expo Go catalog/store/item, tagged quote, and exact cleanup path. The
 owner accepted Phase 4 on the combined native and tagged-backend record; this
 does not claim that all listed behaviors and payment outcomes ran in one tagged
 device session. A future checkout regression should close that same-run gap.
-The lack of a standalone owner cleanup helper remains a tooling improvement.
+The repository now supplies `corepack pnpm cleanup:phase4:expo-go` from
+`/home/mmekwa/Desktop/projects/spacemansystems`; it requires the exact
+`PHASE4_TEST_RUN_ID` and owner credentials, calls the privileged cleanup
+function, verifies every supported tagged collection, and requires zero
+residue.
 
 ## 20. Rollback and secret retirement
 

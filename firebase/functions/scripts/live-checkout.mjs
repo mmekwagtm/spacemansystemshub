@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
@@ -9,6 +10,12 @@ const projectId = process.env.GOOGLE_CLOUD_PROJECT;
 const apiKey = process.env.SPACEMAN_FIREBASE_WEB_API_KEY;
 const region = process.env.SPACEMAN_FUNCTIONS_REGION ?? "africa-south1";
 const completePayment = process.argv.includes("--complete-payment");
+const fixtureCollections = JSON.parse(
+  readFileSync(
+    new URL("../fixture-collections.json", import.meta.url),
+    "utf8",
+  ),
+);
 
 if (
   projectId !== "spacemansystemsbackend" ||
@@ -75,6 +82,23 @@ function callableResult(label, response) {
   if (!("result" in (response.body ?? {})))
     throw new Error(`${label} returned no callable result.`);
   return response.body.result;
+}
+
+function requireCleanupCoverage(result) {
+  const reported = Array.isArray(result?.collections)
+    ? result.collections.filter((entry) => typeof entry === "string")
+    : [];
+  const missing = fixtureCollections.filter(
+    (collectionName) => !reported.includes(collectionName),
+  );
+  const unsupported = reported.filter(
+    (collectionName) => !fixtureCollections.includes(collectionName),
+  );
+  if (missing.length > 0 || unsupported.length > 0) {
+    throw new Error(
+      `Cleanup coverage mismatch; missing=[${missing.join(",")}], unsupported=[${unsupported.join(",")}].`,
+    );
+  }
 }
 
 function requireCallableFailure(label, response) {
@@ -166,26 +190,7 @@ async function directWrite(collectionName, documentId, token) {
 }
 
 async function deleteTaggedDocuments() {
-  const collections = [
-    "users",
-    "stores",
-    "items",
-    "checkoutSessions",
-    "orders",
-    "paymentEvents",
-    "orderEvents",
-    "driverAssignments",
-    "driverLocations",
-    "notifications",
-    "notificationOutbox",
-    "activities",
-    "auditLogs",
-    "feeRules",
-    "deliveryZones",
-    "importBatches",
-    "settlements",
-  ];
-  for (const collectionName of collections) {
+  for (const collectionName of fixtureCollections) {
     for (let page = 0; page < 100; page += 1) {
       const snapshot = await database
         .collection(collectionName)
@@ -203,11 +208,19 @@ async function deleteTaggedDocuments() {
 
 async function cleanup() {
   if (superAdminToken) {
-    await callFunction("cleanupTestFixtures", superAdminToken, {
+    const response = await callFunction("cleanupTestFixtures", superAdminToken, {
       testRunId,
-    }).catch(() => undefined);
+    });
+    const result = callableResult("cleanupTestFixtures", response);
+    if (result?.remaining !== 0)
+      throw new Error("cleanupTestFixtures did not confirm zero residue.");
+    requireCleanupCoverage(result);
+  } else {
+    console.warn(
+      "WARN cleanup callable unavailable before authentication; running explicit emergency Admin cleanup.",
+    );
+    await deleteTaggedDocuments();
   }
-  await deleteTaggedDocuments();
 
   if (settingsCaptured) {
     const settingsReference = database
@@ -215,7 +228,7 @@ async function cleanup() {
       .doc("default");
     if (settingsBefore?.exists)
       await settingsReference.set(settingsBefore.data());
-    else await settingsReference.delete().catch(() => undefined);
+    else await settingsReference.delete();
   }
 
   const listedUsers = await authentication.listUsers();
@@ -233,20 +246,7 @@ async function cleanup() {
 }
 
 async function verifyCleanup() {
-  for (const collectionName of [
-    "users",
-    "stores",
-    "items",
-    "checkoutSessions",
-    "orders",
-    "paymentEvents",
-    "orderEvents",
-    "notifications",
-    "notificationOutbox",
-    "auditLogs",
-    "feeRules",
-    "deliveryZones",
-  ]) {
+  for (const collectionName of fixtureCollections) {
     const snapshot = await database
       .collection(collectionName)
       .where("testRunId", "==", testRunId)

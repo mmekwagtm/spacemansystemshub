@@ -13,6 +13,7 @@
   "scripts": {
     "build": "tsc --noEmit",
     "lint": "eslint src --max-warnings 0",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -22,5 +23,8 @@
     "@spaceman/app-types": "workspace:*",
     "@spaceman/app-validation": "workspace:*",
     "@spaceman/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
   }
 }

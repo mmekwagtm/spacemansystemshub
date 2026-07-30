@@ -6,6 +6,7 @@ import type { CheckoutService } from "@spaceman/app-services";
 import { createCartStore, type CartStorage } from "@spaceman/app-state";
 import type { CheckoutQuoteResult, Order } from "@spaceman/app-types";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -53,6 +54,8 @@ function quote(expiresAt: string): CheckoutQuoteResult {
       deliveryFee: { amountMinor: 2_000, currency: "ZAR" },
       total: { amountMinor: 10_000, currency: "ZAR" },
       routeSnapshot: {
+        deliveryZoneId: "zone-1",
+        serviceAreaVersion: 1,
         distanceMetres: 2_400,
         durationSeconds: 720,
       },
@@ -63,7 +66,7 @@ function quote(expiresAt: string): CheckoutQuoteResult {
 
 function service(expiresAt = "2099-07-26T12:00:00.000Z") {
   return {
-    searchAddresses: vi.fn(async () => [
+    searchAddresses: vi.fn<CheckoutService["searchAddresses"]>(async () => [
       {
         placeId: "place-1",
         primaryText: "12 Block A",
@@ -117,6 +120,7 @@ async function selectAddress() {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
   setOnline(true);
 });
 
@@ -215,7 +219,7 @@ describe("Customer Web Phase 4 checkout", () => {
     expect(recentOrders).toHaveTextContent(/R\s*100,00/);
   });
 
-  it("reuses a lost-response key, then rotates token and key after success", async () => {
+  it("reuses a lost-response key and requires a fresh Places session after quote inputs change", async () => {
     const cart = await populatedCart();
     const checkout = service();
     checkout.createSession
@@ -246,6 +250,25 @@ describe("Customer Web Phase 4 checkout", () => {
     expect(checkout.createSession.mock.calls[1]?.[0].idempotencyKey).toBe(
       checkout.createSession.mock.calls[0]?.[0].idempotencyKey,
     );
+    expect(
+      checkout.createSession.mock.calls[1]?.[0].addressSelection.sessionToken,
+    ).toBe(checkout.searchAddresses.mock.calls[0]?.[0].sessionToken);
+
+    fireEvent.change(screen.getByLabelText("Address label"), {
+      target: { value: "Office" },
+    });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("heading", { name: "Review server quote" }),
+      ).not.toBeInTheDocument(),
+    );
+    fireEvent.click(
+      await screen.findByRole(
+        "option",
+        { name: /12 Block A/ },
+        { timeout: 2_000 },
+      ),
+    );
     fireEvent.click(calculate);
     await waitFor(() =>
       expect(checkout.createSession).toHaveBeenCalledTimes(3),
@@ -257,8 +280,102 @@ describe("Customer Web Phase 4 checkout", () => {
     expect(next?.addressSelection.sessionToken).not.toBe(
       replay?.addressSelection.sessionToken,
     );
+    expect(next?.addressSelection.label).toBe("Office");
     expect(next?.addressSelection.sessionToken.length).toBeLessThanOrEqual(36);
   });
+
+  it("does not lock the cart when the Paystack popup is blocked and allows retry", async () => {
+    const cart = await populatedCart();
+    const checkout = service();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    render(
+      <QueryClientProvider client={createSpacemanQueryClient()}>
+        <CheckoutPanel
+          cartStore={cart}
+          checkoutAllowed
+          customerId="customer-1"
+          onRequireAccount={vi.fn()}
+          service={checkout}
+        />
+      </QueryClientProvider>,
+    );
+
+    await selectAddress();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Calculate delivery quote" }),
+    );
+    await screen.findByRole("heading", { name: "Review server quote" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Pay securely with Paystack" }),
+    );
+    expect(
+      await screen.findByText(/Allow pop-ups for this site/),
+    ).toBeInTheDocument();
+    expect(cart.getState().pendingCheckout).toBeUndefined();
+
+    const replace = vi.fn();
+    open.mockReturnValue({
+      closed: false,
+      close: vi.fn(),
+      location: { replace },
+      opener: window,
+    } as unknown as Window);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Pay securely with Paystack" }),
+    );
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+    expect(cart.getState().pendingCheckout).toMatchObject({
+      checkoutSessionId: "checkout-1",
+      customerId: "customer-1",
+    });
+  });
+
+  it.each([
+    ["paid", "Payment verified. Order checkout-1 created.", false],
+    ["processing", "Payment is still processing. Check again shortly.", true],
+    ["failed", "Payment failed. No order was created.", false],
+    ["cancelled", "Payment was cancelled. No order was created.", false],
+    ["abandoned", "Payment was abandoned. No order was created.", false],
+  ] as const)(
+    "handles a manually checked %s payment outcome",
+    async (status, expectedNotice, remainsPending) => {
+      const cart = await populatedCart();
+      cart.getState().setPendingCheckout({
+        checkoutSessionId: "checkout-1",
+        customerId: "customer-1",
+        reference: "spc_checkout-1",
+      });
+      await cart.flushPersistence();
+      const checkout = service();
+      checkout.verifyPayment.mockResolvedValue({
+        checkoutSessionId: "checkout-1",
+        status,
+        ...(status === "paid" ? { orderId: "checkout-1" } : {}),
+      });
+      render(
+        <QueryClientProvider client={createSpacemanQueryClient()}>
+          <CheckoutPanel
+            cartStore={cart}
+            checkoutAllowed
+            customerId="customer-1"
+            onRequireAccount={vi.fn()}
+            service={checkout}
+          />
+        </QueryClientProvider>,
+      );
+
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Check payment" }),
+      );
+      expect(await screen.findByText(expectedNotice)).toBeInTheDocument();
+      expect(checkout.verifyPayment).toHaveBeenCalledWith({
+        checkoutSessionId: "checkout-1",
+      });
+      expect(cart.getState().pendingCheckout !== undefined).toBe(
+        remainsPending,
+      );
+    },
+  );
 
   it("blocks offline address search and refuses an expired quote", async () => {
     const cart = await populatedCart();
@@ -303,5 +420,36 @@ describe("Customer Web Phase 4 checkout", () => {
         "Connect to the internet to search delivery addresses.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("debounces address search and cancels the stale query", async () => {
+    vi.useFakeTimers();
+    const cart = await populatedCart();
+    const checkout = service();
+    render(
+      <QueryClientProvider client={createSpacemanQueryClient()}>
+        <CheckoutPanel
+          cartStore={cart}
+          checkoutAllowed
+          customerId="customer-1"
+          onRequireAccount={vi.fn()}
+          service={checkout}
+        />
+      </QueryClientProvider>,
+    );
+
+    const address = screen.getByLabelText(
+      "Search a Mabopane delivery address",
+    );
+    fireEvent.change(address, { target: { value: "Mab" } });
+    await act(() => vi.advanceTimersByTimeAsync(349));
+    expect(checkout.searchAddresses).not.toHaveBeenCalled();
+    fireEvent.change(address, { target: { value: "Mabopane" } });
+    await act(() => vi.advanceTimersByTimeAsync(350));
+
+    expect(checkout.searchAddresses).toHaveBeenCalledTimes(1);
+    expect(checkout.searchAddresses).toHaveBeenCalledWith(
+      expect.objectContaining({ query: "Mabopane" }),
+    );
   });
 });

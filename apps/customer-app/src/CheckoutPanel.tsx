@@ -29,6 +29,12 @@ import {
   View,
 } from "react-native";
 
+import {
+  buildNativeCheckoutInput,
+  launchNativeHostedPayment,
+  shouldReconcilePaymentOnAppState,
+  terminalPaymentNotice,
+} from "./checkout-behavior";
 import { customerCheckoutService } from "./identity";
 
 interface CheckoutPanelProps {
@@ -38,6 +44,11 @@ interface CheckoutPanelProps {
   checkoutAllowed: boolean;
   online: boolean;
   onRequireAccount(): void;
+}
+
+interface SelectedDeliveryAddress {
+  candidate: DeliveryAddressCandidate;
+  sessionToken: string;
 }
 
 function randomToken(prefix: string): string {
@@ -84,13 +95,14 @@ export function CheckoutPanel({
     randomAddressSessionToken,
   );
   const [candidates, setCandidates] = useState<DeliveryAddressCandidate[]>([]);
-  const [selection, setSelection] = useState<DeliveryAddressCandidate>();
+  const [selection, setSelection] = useState<SelectedDeliveryAddress>();
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
     randomToken("checkout"),
   );
   const [label, setLabel] = useState("Home");
   const [instructions, setInstructions] = useState("");
   const [quote, setQuote] = useState<CheckoutQuoteResult>();
+  const [quotedInputSignature, setQuotedInputSignature] = useState<string>();
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const lineSignature = useMemo(
@@ -114,18 +126,46 @@ export function CheckoutPanel({
     Boolean(customerId) &&
     cart.pendingCheckout !== undefined &&
     cart.pendingCheckout.customerId !== customerId;
+  const quoteInputSignature = useMemo(
+    () =>
+      [
+        lineSignature,
+        selection?.candidate.placeId ?? "",
+        label.trim() || "Delivery address",
+        instructions.trim(),
+      ].join("|"),
+    [
+      instructions,
+      label,
+      lineSignature,
+      selection?.candidate.placeId,
+    ],
+  );
+  const quoteInputsChanged =
+    quote !== undefined && quotedInputSignature !== quoteInputSignature;
 
   useEffect(() => {
-    setQuote(undefined);
     setIdempotencyKey(randomToken("checkout"));
-  }, [lineSignature, selection?.placeId]);
+  }, [quoteInputSignature]);
+
+  useEffect(() => {
+    if (!quoteInputsChanged) return;
+    setQuote(undefined);
+    setQuotedInputSignature(undefined);
+    setSelection(undefined);
+    setCandidates([]);
+    setSessionToken(randomAddressSessionToken());
+    setNotice(
+      "Delivery details changed. Select the address again for a new quote.",
+    );
+  }, [quoteInputsChanged]);
 
   useEffect(() => {
     const trimmed = query.trim();
     if (
       trimmed.length < 3 ||
       !cart.store ||
-      selection?.formattedText === trimmed
+      selection?.candidate.formattedText === trimmed
     ) {
       setCandidates([]);
       return;
@@ -163,7 +203,7 @@ export function CheckoutPanel({
     online,
     query,
     searchAddresses.mutateAsync,
-    selection?.formattedText,
+    selection?.candidate.formattedText,
     sessionToken,
   ]);
 
@@ -184,22 +224,22 @@ export function CheckoutPanel({
     setError("");
     setNotice("");
     try {
-      const result = await createSession.mutateAsync({
-        channel: "customer_app",
-        idempotencyKey,
-        storeId: cart.store.id,
-        lines: cart.lines.map((line) => ({
-          itemId: line.itemId,
-          quantity: line.quantity,
-        })),
-        addressSelection: {
-          placeId: selection.placeId,
-          sessionToken,
-          label: label.trim() || "Delivery address",
-          ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
-        },
-        ...(testRunId ? { testRunId } : {}),
-      });
+      const result = await createSession.mutateAsync(
+        buildNativeCheckoutInput({
+          idempotencyKey,
+          storeId: cart.store.id,
+          lines: cart.lines.map((line) => ({
+            itemId: line.itemId,
+            quantity: line.quantity,
+          })),
+          placeId: selection.candidate.placeId,
+          sessionToken: selection.sessionToken,
+          label,
+          instructions,
+          ...(testRunId ? { testRunId } : {}),
+        }),
+      );
+      setQuotedInputSignature(quoteInputSignature);
       setQuote(result);
       setNotice("Authoritative delivery quote ready for review.");
       setSessionToken(randomAddressSessionToken());
@@ -212,12 +252,19 @@ export function CheckoutPanel({
   async function openPayment() {
     const checkoutSession = quote?.checkoutSession;
     if (!checkoutSession) return;
+    if (quotedInputSignature !== quoteInputSignature) {
+      setError("Delivery details changed. Request a new quote before paying.");
+      return;
+    }
     if (!customerId) {
       onRequireAccount();
       return;
     }
     if (Date.parse(checkoutSession.quoteExpiresAt) <= Date.now()) {
       setQuote(undefined);
+      setQuotedInputSignature(undefined);
+      setSelection(undefined);
+      setSessionToken(randomAddressSessionToken());
       setIdempotencyKey(randomToken("checkout"));
       setError("Your delivery quote expired. Request a new quote.");
       return;
@@ -229,16 +276,22 @@ export function CheckoutPanel({
 
     setError("");
     try {
-      const authorization = await initializePayment.mutateAsync({
-        checkoutSessionId: checkoutSession.id,
+      await launchNativeHostedPayment({
+        initialize: () =>
+          initializePayment.mutateAsync({
+            checkoutSessionId: checkoutSession.id,
+          }),
+        openUrl: Linking.openURL,
+        onOpened: (authorization) =>
+          cartStore.getState().setPendingCheckout({
+            checkoutSessionId: checkoutSession.id,
+            customerId,
+            reference: authorization.reference,
+          }),
       });
-      cartStore.getState().setPendingCheckout({
-        checkoutSessionId: checkoutSession.id,
-        customerId,
-        reference: authorization.reference,
-      });
-      await Linking.openURL(authorization.authorizationUrl);
-      setNotice("Return to this app after completing Paystack checkout.");
+      setNotice(
+        "Return after Paystack checkout. If the browser closes, check or reopen payment.",
+      );
     } catch (caught) {
       setError(errorMessage(caught));
     }
@@ -272,12 +325,12 @@ export function CheckoutPanel({
       } else {
         cartStore.getState().setPendingCheckout(undefined);
         setQuote(undefined);
+        setQuotedInputSignature(undefined);
+        setSelection(undefined);
+        setCandidates([]);
+        setSessionToken(randomAddressSessionToken());
         setIdempotencyKey(randomToken("checkout"));
-        setNotice(
-          result.status === "abandoned"
-            ? "Payment was abandoned. No order was created."
-            : "Payment failed. No order was created.",
-        );
+        setNotice(terminalPaymentNotice(result) ?? "");
       }
     } catch (caught) {
       setError(errorMessage(caught));
@@ -292,7 +345,8 @@ export function CheckoutPanel({
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active" && ownsPendingCheckout) void checkPayment();
+      if (shouldReconcilePaymentOnAppState(state, ownsPendingCheckout))
+        void checkPayment();
     });
     return () => subscription.remove();
   }, [cartStore, checkPayment, ownsPendingCheckout]);
@@ -395,6 +449,7 @@ export function CheckoutPanel({
                 value={query}
                 onChangeText={(value) => {
                   setQuery(value);
+                  if (selection) setSessionToken(randomAddressSessionToken());
                   setSelection(undefined);
                 }}
               />
@@ -406,13 +461,13 @@ export function CheckoutPanel({
                   accessibilityRole="button"
                   key={candidate.placeId}
                   onPress={() => {
-                    setSelection(candidate);
+                    setSelection({ candidate, sessionToken });
                     setQuery(candidate.formattedText);
                     setCandidates([]);
                   }}
                   style={[
                     styles.address,
-                    selection?.placeId === candidate.placeId &&
+                    selection?.candidate.placeId === candidate.placeId &&
                       styles.addressSelected,
                   ]}
                 >
@@ -430,11 +485,13 @@ export function CheckoutPanel({
                 onChangeText={setInstructions}
               />
               <ActionButton
-                disabled={createSession.isPending || !selection}
+                disabled={createSession.isPending || !selection || !!quote}
                 label={
                   createSession.isPending
                     ? "Calculating…"
-                    : "Calculate delivery quote"
+                    : quote
+                      ? "Quote ready"
+                      : "Calculate delivery quote"
                 }
                 onPress={() => void createQuote()}
               />

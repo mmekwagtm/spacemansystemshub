@@ -24,6 +24,11 @@ interface CheckoutPanelProps {
   onRequireAccount(): void;
 }
 
+interface SelectedDeliveryAddress {
+  candidate: DeliveryAddressCandidate;
+  sessionToken: string;
+}
+
 function randomToken(prefix: string): string {
   const random =
     typeof crypto.randomUUID === "function"
@@ -69,13 +74,14 @@ export function CheckoutPanel({
     randomAddressSessionToken,
   );
   const [candidates, setCandidates] = useState<DeliveryAddressCandidate[]>([]);
-  const [selection, setSelection] = useState<DeliveryAddressCandidate>();
+  const [selection, setSelection] = useState<SelectedDeliveryAddress>();
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
     randomToken("checkout"),
   );
   const [label, setLabel] = useState("Home");
   const [instructions, setInstructions] = useState("");
   const [quote, setQuote] = useState<CheckoutQuoteResult>();
+  const [quotedInputSignature, setQuotedInputSignature] = useState<string>();
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const lineSignature = useMemo(
@@ -99,22 +105,48 @@ export function CheckoutPanel({
     Boolean(customerId) &&
     cart.pendingCheckout !== undefined &&
     cart.pendingCheckout.customerId !== customerId;
+  const quoteInputSignature = useMemo(
+    () =>
+      [
+        lineSignature,
+        selection?.candidate.placeId ?? "",
+        label.trim() || "Delivery address",
+        instructions.trim(),
+      ].join("|"),
+    [
+      instructions,
+      label,
+      lineSignature,
+      selection?.candidate.placeId,
+    ],
+  );
+  const quoteInputsChanged =
+    quote !== undefined && quotedInputSignature !== quoteInputSignature;
 
   useEffect(() => {
     void cartStore.hydrate();
   }, [cartStore]);
 
   useEffect(() => {
-    setQuote(undefined);
     setIdempotencyKey(randomToken("checkout"));
-  }, [lineSignature, selection?.placeId]);
+  }, [quoteInputSignature]);
+
+  useEffect(() => {
+    if (!quoteInputsChanged) return;
+    setQuote(undefined);
+    setQuotedInputSignature(undefined);
+    setSelection(undefined);
+    setCandidates([]);
+    setSessionToken(randomAddressSessionToken());
+    setNotice("Delivery details changed. Select the address again for a new quote.");
+  }, [quoteInputsChanged]);
 
   useEffect(() => {
     const trimmed = query.trim();
     if (
       trimmed.length < 3 ||
       !cart.store ||
-      selection?.formattedText === trimmed
+      selection?.candidate.formattedText === trimmed
     ) {
       setCandidates([]);
       return;
@@ -149,7 +181,7 @@ export function CheckoutPanel({
     cart.store,
     query,
     searchAddresses.mutateAsync,
-    selection?.formattedText,
+    selection?.candidate.formattedText,
     sessionToken,
   ]);
 
@@ -178,13 +210,14 @@ export function CheckoutPanel({
           quantity: line.quantity,
         })),
         addressSelection: {
-          placeId: selection.placeId,
-          sessionToken,
+          placeId: selection.candidate.placeId,
+          sessionToken: selection.sessionToken,
           label: label.trim() || "Delivery address",
           ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
         },
         ...(testRunId ? { testRunId } : {}),
       });
+      setQuotedInputSignature(quoteInputSignature);
       setQuote(result);
       setNotice("Authoritative delivery quote ready for review.");
       setSessionToken(randomAddressSessionToken());
@@ -197,12 +230,19 @@ export function CheckoutPanel({
   async function openPayment() {
     const checkoutSession = quote?.checkoutSession;
     if (!checkoutSession) return;
+    if (quotedInputSignature !== quoteInputSignature) {
+      setError("Delivery details changed. Request a new quote before paying.");
+      return;
+    }
     if (!customerId) {
       onRequireAccount();
       return;
     }
     if (Date.parse(checkoutSession.quoteExpiresAt) <= Date.now()) {
       setQuote(undefined);
+      setQuotedInputSignature(undefined);
+      setSelection(undefined);
+      setSessionToken(randomAddressSessionToken());
       setIdempotencyKey(randomToken("checkout"));
       setError("Your delivery quote expired. Request a new quote.");
       return;
@@ -218,14 +258,9 @@ export function CheckoutPanel({
       const authorization = await initializePayment.mutateAsync({
         checkoutSessionId: checkoutSession.id,
       });
-      cartStore.getState().setPendingCheckout({
-        checkoutSessionId: checkoutSession.id,
-        customerId,
-        reference: authorization.reference,
-      });
-      if (paymentWindow && !paymentWindow.closed)
+      if (paymentWindow && !paymentWindow.closed) {
         paymentWindow.location.replace(authorization.authorizationUrl);
-      else {
+      } else {
         const fallback = window.open(authorization.authorizationUrl, "_blank");
         if (!fallback) {
           setError(
@@ -235,8 +270,13 @@ export function CheckoutPanel({
         }
         fallback.opener = null;
       }
+      cartStore.getState().setPendingCheckout({
+        checkoutSessionId: checkoutSession.id,
+        customerId,
+        reference: authorization.reference,
+      });
       setNotice(
-        "Paystack opened in a separate window. Return here after payment.",
+        "Paystack opened in a separate window. If it closes, return here to check or reopen payment.",
       );
     } catch (caught) {
       paymentWindow?.close();
@@ -271,11 +311,17 @@ export function CheckoutPanel({
       } else {
         cartStore.getState().setPendingCheckout(undefined);
         setQuote(undefined);
+        setQuotedInputSignature(undefined);
+        setSelection(undefined);
+        setCandidates([]);
+        setSessionToken(randomAddressSessionToken());
         setIdempotencyKey(randomToken("checkout"));
         setNotice(
           result.status === "abandoned"
             ? "Payment was abandoned. No order was created."
-            : "Payment failed. No order was created.",
+            : result.status === "cancelled"
+              ? "Payment was cancelled. No order was created."
+              : "Payment failed. No order was created.",
         );
       }
     } catch (caught) {
@@ -398,6 +444,8 @@ export function CheckoutPanel({
                   value={query}
                   onChange={(event) => {
                     setQuery(event.target.value);
+                    if (selection)
+                      setSessionToken(randomAddressSessionToken());
                     setSelection(undefined);
                   }}
                   placeholder="Type at least 3 characters"
@@ -411,16 +459,18 @@ export function CheckoutPanel({
                   {candidates.map((candidate) => (
                     <button
                       className={
-                        selection?.placeId === candidate.placeId
+                        selection?.candidate.placeId === candidate.placeId
                           ? "address-option selected"
                           : "address-option"
                       }
                       key={candidate.placeId}
                       role="option"
-                      aria-selected={selection?.placeId === candidate.placeId}
+                      aria-selected={
+                        selection?.candidate.placeId === candidate.placeId
+                      }
                       type="button"
                       onClick={() => {
-                        setSelection(candidate);
+                        setSelection({ candidate, sessionToken });
                         setQuery(candidate.formattedText);
                         setCandidates([]);
                       }}
@@ -441,13 +491,15 @@ export function CheckoutPanel({
                 />
               </label>
               <button
-                disabled={createSession.isPending || !selection}
+                disabled={createSession.isPending || !selection || !!quote}
                 type="button"
                 onClick={() => void createQuote()}
               >
                 {createSession.isPending
                   ? "Calculating…"
-                  : "Calculate delivery quote"}
+                  : quote
+                    ? "Quote ready"
+                    : "Calculate delivery quote"}
               </button>
             </div>
           )}

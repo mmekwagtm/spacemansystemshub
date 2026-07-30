@@ -2,6 +2,7 @@ import type { CheckoutFeeRuleSnapshot } from "@spaceman/app-types";
 import { describe, expect, it } from "vitest";
 
 import {
+  assertWithinMaximumDeliveryDistance,
   calculateDeliveryFeeMinor,
   feePolicyFromSnapshot,
   matchesAllowedLocality,
@@ -95,6 +96,18 @@ describe("Phase 4 delivery fees", () => {
 });
 
 describe("Phase 4 Maps guards", () => {
+  it("preserves unlimited legacy zones and enforces a configured maximum", () => {
+    expect(() =>
+      assertWithinMaximumDeliveryDistance(250_000),
+    ).not.toThrow();
+    expect(() =>
+      assertWithinMaximumDeliveryDistance(7_391, 10_000),
+    ).not.toThrow();
+    expect(() =>
+      assertWithinMaximumDeliveryDistance(10_001, 10_000),
+    ).toThrow("exceeds the configured maximum delivery distance");
+  });
+
   it("caches duplicate provider work inside one actor session", async () => {
     const gate = new ProviderRequestGate({
       limit: 2,
@@ -132,6 +145,32 @@ describe("Phase 4 Maps guards", () => {
     ).resolves.toBe("second");
   });
 
+  it("enforces one shared quota across independent provider gates", async () => {
+    let calls = 0;
+    const distributedQuota = {
+      consume: async () => {
+        if (calls >= 1) throw new Error("distributed quota reached");
+        calls += 1;
+      },
+    };
+    const firstInstance = new ProviderRequestGate(
+      { limit: 1, windowMs: 1_000, cacheTtlMs: 0 },
+      () => 1_000,
+      distributedQuota,
+    );
+    const secondInstance = new ProviderRequestGate(
+      { limit: 1, windowMs: 1_000, cacheTtlMs: 0 },
+      () => 1_000,
+      distributedQuota,
+    );
+    await expect(
+      firstInstance.run({ actorId: "customer-1" }, async () => "first"),
+    ).resolves.toBe("first");
+    await expect(
+      secondInstance.run({ actorId: "customer-1" }, async () => "not-called"),
+    ).rejects.toThrow("distributed quota reached");
+  });
+
   it("matches normalized Mabopane locality components", () => {
     expect(
       matchesAllowedLocality(
@@ -160,6 +199,8 @@ describe("Phase 4 Maps guards", () => {
           },
           routeSnapshot: {
             provider: "google_routes",
+            deliveryZoneId: "mabopane",
+            serviceAreaVersion: 1,
             distanceMetres: 3_000,
             durationSeconds: 600,
             calculatedAt: "2026-07-26T00:00:00.000Z",

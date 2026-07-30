@@ -13,6 +13,7 @@
   "scripts": {
     "build": "tsc --noEmit",
     "lint": "eslint src --max-warnings 0",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -20,5 +21,8 @@
     "@spaceman/app-services": "workspace:*",
     "@spaceman/app-types": "workspace:*",
     "@tanstack/react-query": "^5.81.5"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
   }
 }

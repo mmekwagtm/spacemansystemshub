@@ -37,6 +37,8 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 
+import fixtureCollections from "../fixture-collections.json";
+
 export {
   cancelCatalogImport,
   cleanupCatalogMedia,
@@ -1042,27 +1044,9 @@ export const cleanupTestFixtures = onCall(
       testFixtureMutationInputSchema,
       request.data,
     );
-    const collections = [
-      "stores",
-      "items",
-      "checkoutSessions",
-      "orders",
-      "paymentEvents",
-      "orderEvents",
-      "driverAssignments",
-      "driverLocations",
-      "notifications",
-      "notificationOutbox",
-      "activities",
-      "auditLogs",
-      "feeRules",
-      "deliveryZones",
-      "importBatches",
-      "settlements",
-    ];
     let deleted = 0;
 
-    for (const collectionName of collections) {
+    for (const collectionName of fixtureCollections) {
       for (let batchNumber = 0; batchNumber < 100; batchNumber += 1) {
         const snapshots = await database
           .collection(collectionName)
@@ -1081,7 +1065,7 @@ export const cleanupTestFixtures = onCall(
 
     const residue = (
       await Promise.all(
-        collections.map((collectionName) =>
+        fixtureCollections.map((collectionName) =>
           database
             .collection(collectionName)
             .where("testRunId", "==", input.testRunId)
@@ -1107,6 +1091,7 @@ export const cleanupTestFixtures = onCall(
       acceptedAt: new Date().toISOString(),
       deleted,
       remaining: 0,
+      collections: fixtureCollections,
     };
   },
 );

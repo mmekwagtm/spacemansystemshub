@@ -515,6 +515,10 @@ importers:
       firebase:
         specifier: ^11.9.1
         version: 11.10.0
+    devDependencies:
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.20.1)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.49.0)(yaml@2.9.0)
 
   packages/app-functions:
     dependencies:
@@ -565,6 +569,10 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.81.5
         version: 5.101.2(react@19.2.3)
+    devDependencies:
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.20.1)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.49.0)(yaml@2.9.0)
 
   packages/app-services:
     dependencies:
@@ -586,6 +594,10 @@ importers:
       '@spaceman/shared':
         specifier: workspace:*
         version: link:../shared
+    devDependencies:
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.20.1)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.49.0)(yaml@2.9.0)
 
   packages/app-state:
     dependencies:

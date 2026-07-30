@@ -46,6 +46,15 @@ type ProviderRequest = {
   cacheKey?: string;
 };
 
+export interface DistributedProviderQuota {
+  consume(input: {
+    actorId: string;
+    limit: number;
+    windowMs: number;
+    now: number;
+  }): Promise<void>;
+}
+
 export class ProviderRequestGate {
   private readonly usage = new Map<
     string,
@@ -59,6 +68,7 @@ export class ProviderRequestGate {
   constructor(
     private readonly policy: ProviderRequestPolicy,
     private readonly clock: () => number = Date.now,
+    private readonly distributedQuota?: DistributedProviderQuota,
   ) {}
 
   async run<T>(
@@ -77,23 +87,37 @@ export class ProviderRequestGate {
       return cached.pending as Promise<T>;
     }
 
-    const previous = this.usage.get(request.actorId);
-    const usage =
-      previous === undefined ||
-      now - previous.windowStartedAt >= this.policy.windowMs
-        ? { windowStartedAt: now, calls: 0 }
-        : previous;
-    if (usage.calls >= this.policy.limit) {
-      this.policy.onDecision?.("rejected");
-      throw new AppError({
-        code: "rate_limited",
-        source: "app-maps/provider-request-gate",
-        message: "The actor exceeded the bounded provider request window.",
-        userMessage: "Too many map requests were made. Please wait and retry.",
-      });
+    if (this.distributedQuota) {
+      try {
+        await this.distributedQuota.consume({
+          actorId: request.actorId,
+          limit: this.policy.limit,
+          windowMs: this.policy.windowMs,
+          now,
+        });
+      } catch (error) {
+        this.policy.onDecision?.("rejected");
+        throw error;
+      }
+    } else {
+      const previous = this.usage.get(request.actorId);
+      const usage =
+        previous === undefined ||
+        now - previous.windowStartedAt >= this.policy.windowMs
+          ? { windowStartedAt: now, calls: 0 }
+          : previous;
+      if (usage.calls >= this.policy.limit) {
+        this.policy.onDecision?.("rejected");
+        throw new AppError({
+          code: "rate_limited",
+          source: "app-maps/provider-request-gate",
+          message: "The actor exceeded the bounded provider request window.",
+          userMessage: "Too many map requests were made. Please wait and retry.",
+        });
+      }
+      usage.calls += 1;
+      this.usage.set(request.actorId, usage);
     }
-    usage.calls += 1;
-    this.usage.set(request.actorId, usage);
     this.policy.onDecision?.("provider_call");
 
     const pending = load();
@@ -146,6 +170,34 @@ function requireSafeNonNegativeInteger(value: number, field: string): void {
       message: `${field} must be a safe non-negative integer.`,
       userMessage:
         "Delivery pricing is not configured correctly. Please try again later.",
+    });
+  }
+}
+
+export function assertWithinMaximumDeliveryDistance(
+  distanceMetres: number,
+  maximumDistanceMetres?: number,
+): void {
+  requireSafeNonNegativeInteger(distanceMetres, "distanceMetres");
+  if (maximumDistanceMetres === undefined) return;
+  if (
+    !Number.isSafeInteger(maximumDistanceMetres) ||
+    maximumDistanceMetres <= 0
+  ) {
+    throw new AppError({
+      code: "precondition_failed",
+      source: "app-maps/delivery-distance",
+      message: "The maximum delivery distance must be a positive integer.",
+      userMessage:
+        "Delivery serviceability is not configured correctly. Please try again later.",
+    });
+  }
+  if (distanceMetres > maximumDistanceMetres) {
+    throw new AppError({
+      code: "precondition_failed",
+      source: "app-maps/delivery-distance",
+      message: "The route exceeds the configured maximum delivery distance.",
+      userMessage: "This address is outside the delivery distance.",
     });
   }
 }

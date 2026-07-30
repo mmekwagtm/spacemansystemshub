@@ -349,6 +349,12 @@ export const upsertDeliveryZoneInputSchema = z.object({
     .min(1)
     .max(50)
     .transform((values) => [...new Set(values)]),
+  maximumDeliveryDistanceMetres: z
+    .number()
+    .int()
+    .min(1)
+    .max(1_000_000)
+    .optional(),
   testRunId: testRunIdSchema.optional(),
 });
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertAccountArchiveTarget,
+  appCheckEnforcementFromEnvironment,
   assertAssignmentVersion,
   assertFeeRuleEffectiveNow,
   assertCatalogMediaScope,
@@ -14,14 +15,15 @@ import {
   assertTrustedCommandAccess,
   assertUserManagementScope,
   assertUserStatusTransition,
+  classifyPaystackStatus,
   isStoreOpenAt,
   needsActionReasonsAfterAssignment,
   requirePaystackAuthorizationUrl,
   requirePaystackSecretForEnvironment,
   decideMerchantStoreSubmissionAction,
   decideCatalogImportCommit,
-  decidePaystackWebhookAction,
   hasUsableOpeningHours,
+  planPaystackReconciliation,
   stableCatalogImportItemId,
   stableCheckoutSessionId,
   stablePaystackReference,
@@ -181,26 +183,20 @@ describe("trusted command policy", () => {
     expect(() => assertUserStatusTransition("archived", "active")).toThrow();
   });
 
-  it("creates a paid order once and treats a signed webhook retry as a replay", () => {
+  it("creates a paid order once and treats a concurrent retry as a replay", () => {
     expect(
-      decidePaystackWebhookAction({
-        event: "charge.success",
-        eventAlreadyProcessed: false,
+      planPaystackReconciliation({
         checkoutSessionStatus: "payment_pending",
+        providerStatus: "paid",
       }),
-    ).toBe("create_order");
+    ).toMatchObject({ action: "create_order", status: "paid" });
     expect(
-      decidePaystackWebhookAction({
-        event: "charge.success",
-        eventAlreadyProcessed: true,
+      planPaystackReconciliation({
+        checkoutSessionStatus: "consumed",
+        existingOrderId: "checkout-1",
+        providerStatus: "paid",
       }),
-    ).toBe("replay");
-    expect(
-      decidePaystackWebhookAction({
-        event: "charge.failed",
-        eventAlreadyProcessed: false,
-      }),
-    ).toBe("ignore");
+    ).toMatchObject({ action: "replay_paid", status: "paid" });
   });
 
   it("stops foreground tracking when a delivery is no longer active", () => {
@@ -284,6 +280,38 @@ describe("Phase 4 checkout and payment invariants", () => {
     ).toThrow("did not match");
   });
 
+  it.each([
+    ["success", "paid", "create_order", "consumed"],
+    ["failed", "failed", "record_status", "failed"],
+    ["cancelled", "cancelled", "record_status", "cancelled"],
+    ["abandoned", "abandoned", "record_status", "abandoned"],
+    ["pending", "processing", "record_status", "payment_pending"],
+  ] as const)(
+    "plans the %s provider outcome",
+    (providerValue, status, action, sessionStatus) => {
+      expect(
+        planPaystackReconciliation({
+          checkoutSessionStatus: "payment_pending",
+          providerStatus: classifyPaystackStatus(providerValue),
+        }),
+      ).toMatchObject({ status, action, sessionStatus });
+    },
+  );
+
+  it("treats delayed provider completion as processing without creating an order", () => {
+    expect(classifyPaystackStatus("ongoing")).toBe("processing");
+    expect(
+      planPaystackReconciliation({
+        checkoutSessionStatus: "payment_pending",
+        providerStatus: "processing",
+      }),
+    ).toMatchObject({
+      action: "record_status",
+      status: "processing",
+      eventStatus: "pending",
+    });
+  });
+
   it("accepts only the hosted Paystack checkout host", () => {
     expect(
       requirePaystackAuthorizationUrl(
@@ -302,6 +330,15 @@ describe("Phase 4 checkout and payment invariants", () => {
     expect(
       requirePaystackSecretForEnvironment("sk_test_redacted", "development"),
     ).toBe("sk_test_redacted");
+  });
+
+  it("stages App Check explicitly and rejects ambiguous configuration", () => {
+    expect(appCheckEnforcementFromEnvironment(undefined)).toBe(false);
+    expect(appCheckEnforcementFromEnvironment("false")).toBe(false);
+    expect(appCheckEnforcementFromEnvironment("true")).toBe(true);
+    expect(() => appCheckEnforcementFromEnvironment("yes")).toThrow(
+      "must be true or false",
+    );
   });
 
   it("evaluates normal and overnight Johannesburg opening hours", () => {

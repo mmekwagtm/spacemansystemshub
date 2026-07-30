@@ -176,9 +176,12 @@ export interface CheckoutAddressSnapshot extends DeliveryAddress {
 
 export interface CheckoutRouteSnapshot {
   provider: "google_routes";
+  deliveryZoneId: string;
+  serviceAreaVersion: number;
   distanceMetres: number;
   durationSeconds: number;
   calculatedAt: string;
+  maximumDeliveryDistanceMetres?: number;
 }
 
 export interface CheckoutStoreSnapshot {
@@ -216,6 +219,7 @@ export type CheckoutSessionStatus =
   | "failed"
   | "expired"
   | "abandoned"
+  | "cancelled"
   | "consumed";
 
 export interface CheckoutSession extends DocumentMetadata {
@@ -416,6 +420,7 @@ export interface DeliveryZone extends DocumentMetadata {
   serviceAreaVersion: number;
   countryCode: "ZA";
   allowedLocalities: string[];
+  maximumDeliveryDistanceMetres?: number;
   activeFeeRuleId?: string;
 }
 
@@ -500,6 +505,7 @@ export interface UpsertDeliveryZoneInput {
   active: boolean;
   countryCode: "ZA";
   allowedLocalities: string[];
+  maximumDeliveryDistanceMetres?: number;
   testRunId?: string;
 }
 
@@ -547,7 +553,7 @@ export interface VerifyPaystackPaymentInput {
 
 export interface PaystackPaymentVerification {
   checkoutSessionId: string;
-  status: "processing" | "paid" | "failed" | "abandoned";
+  status: "processing" | "paid" | "failed" | "abandoned" | "cancelled";
   orderId?: string;
 }
 

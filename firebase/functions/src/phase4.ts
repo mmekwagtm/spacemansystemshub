@@ -7,7 +7,9 @@ import {
   assertPaystackVerification,
   assertQuoteFresh,
   assertTrustedCommandAccess,
+  appCheckEnforcementFromEnvironment,
   isStoreOpenAt,
+  planPaystackReconciliation,
   requirePaystackAuthorizationUrl,
   requirePaystackSecretForEnvironment,
   stableCheckoutSessionId,
@@ -16,11 +18,13 @@ import {
   type StoreOpeningPeriod,
 } from "@spaceman/app-functions";
 import {
+  assertWithinMaximumDeliveryDistance,
   calculateDeliveryFeeMinor,
   matchesAllowedLocality,
   normalizeLocality,
   parseGoogleDurationSeconds,
   ProviderRequestGate,
+  type DistributedProviderQuota,
 } from "@spaceman/app-maps";
 import type {
   CheckoutAddressSnapshot,
@@ -63,24 +67,71 @@ if (getApps().length === 0) initializeApp();
 
 const database = getFirestore();
 const functionRegion = process.env.SPACEMAN_FUNCTIONS_REGION ?? "africa-south1";
+const enforcePhase4AppCheck = appCheckEnforcementFromEnvironment(
+  process.env.SPACEMAN_ENFORCE_APP_CHECK,
+);
 const googleMapsServerApiKey = defineSecret("GOOGLE_MAPS_SERVER_API_KEY");
 const paystackSecret = defineSecret("PAYSTACK_SECRET_KEY");
 const quoteLifetimeMs = 10 * 60 * 1_000;
 const paymentInitializationLeaseMs = 90_000;
+function firestoreMapsQuota(flow: string): DistributedProviderQuota {
+  return {
+    async consume(input) {
+      const reference = database
+        .collection("platformSettings")
+        .doc("default")
+        .collection("mapsQuota")
+        .doc(`${flow}-${hash(input.actorId).slice(0, 32)}`);
+      await database.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(reference);
+        const current = snapshot.exists ? asRecord(snapshot.data()) : {};
+        const previousWindow =
+          typeof current.windowStartedAt === "number"
+            ? current.windowStartedAt
+            : Number.NaN;
+        const sameWindow =
+          Number.isFinite(previousWindow) &&
+          input.now - previousWindow < input.windowMs;
+        const calls =
+          sameWindow && typeof current.calls === "number" ? current.calls : 0;
+        if (calls >= input.limit) {
+          throw new AppError({
+            code: "rate_limited",
+            source: "firebase-functions/maps-quota",
+            message: `Distributed ${flow} Maps quota was exceeded.`,
+            userMessage:
+              "Too many map requests were made. Please wait and retry.",
+          });
+        }
+        transaction.set(
+          reference,
+          {
+            flow,
+            actorHash: hash(input.actorId),
+            windowStartedAt: sameWindow ? previousWindow : input.now,
+            calls: calls + 1,
+            updatedAt: Timestamp.fromMillis(input.now),
+          },
+          { merge: false },
+        );
+      });
+    },
+  };
+}
 const addressSearchGate = new ProviderRequestGate({
   limit: 30,
   windowMs: 60_000,
   cacheTtlMs: 20_000,
   onDecision: (decision) =>
     logger.info("Maps request gate", { flow: "address_search", decision }),
-});
+}, Date.now, firestoreMapsQuota("address-search"));
 const checkoutMapsGate = new ProviderRequestGate({
   limit: 10,
   windowMs: 60_000,
   cacheTtlMs: 0,
   onDecision: (decision) =>
     logger.info("Maps request gate", { flow: "checkout_quote", decision }),
-});
+}, Date.now, firestoreMapsQuota("checkout-quote"));
 
 type Actor = {
   uid: string;
@@ -115,9 +166,12 @@ type PlaceDetails = {
 
 type ResolvedZone = {
   id: string;
+  zone: Record<string, unknown>;
+  serviceAreaVersion: number;
   feeRule: Record<string, unknown>;
   feeRuleSnapshot: CheckoutFeeRuleSnapshot;
   matchedLocality: string;
+  maximumDeliveryDistanceMetres?: number;
 };
 
 function parseInput<TOutput>(
@@ -834,11 +888,33 @@ async function resolveDeliveryZone(
       Date.parse(snapshotRule.effectiveFrom) > Date.now()
     )
       continue;
+    const serviceAreaVersion =
+      zone.serviceAreaVersion === undefined
+        ? 1
+        : asSafeNonNegativeInteger(
+            zone.serviceAreaVersion,
+            "The delivery-zone service-area version is invalid.",
+          );
+    if (serviceAreaVersion < 1)
+      throw new HttpsError(
+        "failed-precondition",
+        "The delivery-zone service-area version is invalid.",
+      );
     return {
       id: snapshot.id,
+      zone,
+      serviceAreaVersion,
       feeRule: rule,
       feeRuleSnapshot: snapshotRule,
       matchedLocality,
+      ...(typeof zone.maximumDeliveryDistanceMetres === "number"
+        ? {
+            maximumDeliveryDistanceMetres: asSafeNonNegativeInteger(
+              zone.maximumDeliveryDistanceMetres,
+              "The maximum delivery distance is invalid.",
+            ),
+          }
+        : {}),
     };
   }
   throw new HttpsError(
@@ -851,7 +927,12 @@ async function computeGoogleRoute(
   origin: { latitude: number; longitude: number },
   destination: { latitude: number; longitude: number },
   calculatedAt: string,
-): Promise<CheckoutRouteSnapshot> {
+): Promise<
+  Omit<
+    CheckoutRouteSnapshot,
+    "deliveryZoneId" | "serviceAreaVersion" | "maximumDeliveryDistanceMetres"
+  >
+> {
   const body = await jsonProviderGateway.request(
     "https://routes.googleapis.com/directions/v2:computeRoutes",
     {
@@ -954,20 +1035,13 @@ async function reconcileVerifiedPayment(input: {
     if (!sessionSnapshot.exists)
       throw new HttpsError("not-found", "The checkout session does not exist.");
     const session = asRecord(sessionSnapshot.data());
-    if (session.status === "consumed" && typeof session.orderId === "string") {
-      result = {
-        checkoutSessionId: input.checkoutSessionId,
-        status: "paid",
-        orderId: session.orderId,
-      };
-      return;
-    }
     const total = asMoney(session.total, "The checkout total is invalid.");
     const reference = asString(
       session.paystackReference,
       "The checkout has no payment reference.",
     );
     let status: PaystackReconciliationStatus;
+    let plan: ReturnType<typeof planPaystackReconciliation>;
     try {
       status = assertPaystackVerification({
         expectedReference: reference,
@@ -978,19 +1052,31 @@ async function reconcileVerifiedPayment(input: {
         providerCurrency: input.provider.currency,
         providerStatus: input.provider.status,
       });
+      plan = planPaystackReconciliation({
+        checkoutSessionStatus: asString(
+          session.status,
+          "The checkout status is invalid.",
+        ),
+        existingOrderId: session.orderId,
+        providerStatus: status,
+      });
     } catch (error) {
       throwAppError(error);
     }
+    if (plan.action === "replay_paid") {
+      result = {
+        checkoutSessionId: input.checkoutSessionId,
+        status: "paid",
+        orderId: asString(
+          session.orderId,
+          "The consumed checkout has no order identifier.",
+        ),
+      };
+      return;
+    }
 
     const now = Timestamp.now();
-    const eventStatus =
-      status === "paid"
-        ? "paid"
-        : status === "failed"
-          ? "failed"
-          : status === "abandoned"
-            ? "cancelled"
-            : "pending";
+    const eventStatus = plan.eventStatus;
     const eventId = `paystack-${hash(
       `${input.provider.transactionId}:${status}`,
     ).slice(0, 32)}`;
@@ -1016,18 +1102,15 @@ async function reconcileVerifiedPayment(input: {
       updatedBy: "system",
     };
 
-    if (status !== "paid") {
+    if (plan.action === "record_status") {
       if (!eventSnapshot.exists)
         transaction.create(eventReference, eventDocument);
       transaction.update(sessionReference, {
-        status:
-          status === "failed"
-            ? "failed"
-            : status === "abandoned"
-              ? "abandoned"
-              : "payment_pending",
+        status: plan.sessionStatus,
         paymentLastCheckedAt: now,
-        ...(status === "failed" || status === "abandoned"
+        ...(status === "failed" ||
+        status === "abandoned" ||
+        status === "cancelled"
           ? { paymentFailureReason: status }
           : {}),
         updatedAt: now,
@@ -1201,6 +1284,7 @@ export const searchDeliveryAddresses = onCall(
     region: functionRegion,
     secrets: [googleMapsServerApiKey],
     maxInstances: 10,
+    enforceAppCheck: enforcePhase4AppCheck,
   },
   async (request) => {
     const actor = await requireActor(request);
@@ -1244,6 +1328,7 @@ export const createCheckoutSession = onCall(
     region: functionRegion,
     secrets: [googleMapsServerApiKey],
     maxInstances: 10,
+    enforceAppCheck: enforcePhase4AppCheck,
   },
   async (request): Promise<CheckoutQuoteResult> => {
     const actor = await requireActor(request);
@@ -1309,11 +1394,30 @@ export const createCheckoutSession = onCall(
     );
     const now = new Date();
     const nowIso = now.toISOString();
-    const routeSnapshot = await computeGoogleRoute(
+    const computedRoute = await computeGoogleRoute(
       storeSnapshot.address.coordinates,
       place.address.coordinates,
       nowIso,
     );
+    try {
+      assertWithinMaximumDeliveryDistance(
+        computedRoute.distanceMetres,
+        zone.maximumDeliveryDistanceMetres,
+      );
+    } catch (error) {
+      throwAppError(error);
+    }
+    const routeSnapshot: CheckoutRouteSnapshot = {
+      ...computedRoute,
+      deliveryZoneId: zone.id,
+      serviceAreaVersion: zone.serviceAreaVersion,
+      ...(zone.maximumDeliveryDistanceMetres === undefined
+        ? {}
+        : {
+            maximumDeliveryDistanceMetres:
+              zone.maximumDeliveryDistanceMetres,
+          }),
+    };
     let deliveryFeeMinor: number;
     try {
       deliveryFeeMinor = calculateDeliveryFeeMinor({
@@ -1429,6 +1533,7 @@ export const createCheckoutSession = onCall(
       );
       if (
         currentFingerprint !== loaded.fingerprint ||
+        hash(asRecord(currentZone.data())) !== hash(zone.zone) ||
         asRecord(currentZone.data()).activeFeeRuleId !==
           zone.feeRuleSnapshot.id ||
         hash(asRecord(currentRule.data())) !== hash(zone.feeRule)
@@ -1454,7 +1559,7 @@ export const createCheckoutSession = onCall(
 );
 
 export const upsertDeliveryZone = onCall(
-  { region: functionRegion },
+  { region: functionRegion, enforceAppCheck: enforcePhase4AppCheck },
   async (request) => {
     const actor = await requireActor(request);
     requireCommand(actor, "upsertDeliveryZone");
@@ -1469,9 +1574,14 @@ export const upsertDeliveryZone = onCall(
         ? asRecord(existingSnapshot.data())
         : {};
       const previousLocalities = asStringArray(existing.allowedLocalities);
+      const previousMaximumDistance =
+        typeof existing.maximumDeliveryDistanceMetres === "number"
+          ? existing.maximumDeliveryDistanceMetres
+          : undefined;
       const serviceAreaChanged =
         existing.countryCode !== input.countryCode ||
-        hash(previousLocalities) !== hash(input.allowedLocalities);
+        hash(previousLocalities) !== hash(input.allowedLocalities) ||
+        previousMaximumDistance !== input.maximumDeliveryDistanceMetres;
       const now = Timestamp.now();
       transaction.set(
         reference,
@@ -1481,6 +1591,12 @@ export const upsertDeliveryZone = onCall(
           active: input.active,
           countryCode: input.countryCode,
           allowedLocalities: input.allowedLocalities,
+          ...(input.maximumDeliveryDistanceMetres === undefined
+            ? {}
+            : {
+                maximumDeliveryDistanceMetres:
+                  input.maximumDeliveryDistanceMetres,
+              }),
           serviceAreaVersion:
             typeof existing.serviceAreaVersion === "number"
               ? existing.serviceAreaVersion + (serviceAreaChanged ? 1 : 0)
@@ -1514,6 +1630,8 @@ export const upsertDeliveryZone = onCall(
           active: input.active,
           serviceAreaChanged,
           localityCount: input.allowedLocalities.length,
+          maximumDeliveryDistanceMetres:
+            input.maximumDeliveryDistanceMetres ?? 0,
         },
         ...withTestRun(input.testRunId),
         createdAt: now,
@@ -1527,7 +1645,7 @@ export const upsertDeliveryZone = onCall(
 );
 
 export const publishDeliveryFeeRule = onCall(
-  { region: functionRegion },
+  { region: functionRegion, enforceAppCheck: enforcePhase4AppCheck },
   async (request) => {
     const actor = await requireActor(request);
     requireCommand(actor, "publishDeliveryFeeRule");
@@ -1637,7 +1755,7 @@ export const publishDeliveryFeeRule = onCall(
 );
 
 export const updateCheckoutSettings = onCall(
-  { region: functionRegion },
+  { region: functionRegion, enforceAppCheck: enforcePhase4AppCheck },
   async (request) => {
     const actor = await requireActor(request);
     requireCommand(actor, "updateCheckoutSettings");
@@ -1704,7 +1822,11 @@ export const updateCheckoutSettings = onCall(
 );
 
 export const initializePaystackPayment = onCall(
-  { region: functionRegion, secrets: [paystackSecret] },
+  {
+    region: functionRegion,
+    secrets: [paystackSecret],
+    enforceAppCheck: enforcePhase4AppCheck,
+  },
   async (request): Promise<PaystackPaymentAuthorization> => {
     const actor = await requireActor(request);
     requireCommand(actor, "initializePaystackPayment");
@@ -1871,8 +1993,8 @@ export const initializePaystackPayment = onCall(
         ),
       };
     } catch (error) {
-      await database
-        .runTransaction(async (transaction) => {
+      try {
+        await database.runTransaction(async (transaction) => {
           const currentSnapshot = await transaction.get(sessionReference);
           if (!currentSnapshot.exists) return;
           const current = asRecord(currentSnapshot.data());
@@ -1889,8 +2011,17 @@ export const initializePaystackPayment = onCall(
             updatedAt: Timestamp.now(),
             updatedBy: "system",
           });
-        })
-        .catch(() => undefined);
+        });
+      } catch (rollbackError) {
+        logger.error("Paystack initialization rollback failed", {
+          checkoutSessionId: input.checkoutSessionId,
+          initializationAttemptId,
+          errorName:
+            rollbackError instanceof Error
+              ? rollbackError.name
+              : "UnknownRollbackError",
+        });
+      }
       throwAppError(error);
     }
     let authorizationUrl = initialized.authorizationUrl;
@@ -1932,7 +2063,11 @@ export const initializePaystackPayment = onCall(
 );
 
 export const verifyPaystackPayment = onCall(
-  { region: functionRegion, secrets: [paystackSecret] },
+  {
+    region: functionRegion,
+    secrets: [paystackSecret],
+    enforceAppCheck: enforcePhase4AppCheck,
+  },
   async (request): Promise<PaystackPaymentVerification> => {
     const actor = await requireActor(request);
     requireCommand(actor, "verifyPaystackPayment");
@@ -1949,12 +2084,6 @@ export const verifyPaystackPayment = onCall(
         "permission-denied",
         "The checkout session belongs to another customer.",
       );
-    if (session.status === "consumed" && typeof session.orderId === "string")
-      return {
-        checkoutSessionId: input.checkoutSessionId,
-        status: "paid",
-        orderId: session.orderId,
-      };
     const reference = asString(
       session.paystackReference,
       "Payment has not been initialized for this checkout.",

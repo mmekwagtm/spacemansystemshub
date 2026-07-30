@@ -10,6 +10,7 @@ import {
   searchDeliveryAddressesInputSchema,
   testFixtureMutationInputSchema,
   updateMerchantStoreInputSchema,
+  upsertDeliveryZoneInputSchema,
 } from "./index";
 
 describe("command validation", () => {
@@ -59,6 +60,30 @@ describe("command validation", () => {
         effectiveFrom: "2026-07-26T00:00:00.000Z",
       }),
     ).toThrow("Maximum fee");
+  });
+
+  it("preserves unlimited delivery zones and bounds an optional maximum distance", () => {
+    const zone = {
+      name: "Mabopane",
+      active: true,
+      countryCode: "ZA",
+      allowedLocalities: ["Mabopane"],
+    };
+    expect(
+      upsertDeliveryZoneInputSchema.parse(zone),
+    ).not.toHaveProperty("maximumDeliveryDistanceMetres");
+    expect(
+      upsertDeliveryZoneInputSchema.parse({
+        ...zone,
+        maximumDeliveryDistanceMetres: 25_000,
+      }).maximumDeliveryDistanceMetres,
+    ).toBe(25_000);
+    expect(() =>
+      upsertDeliveryZoneInputSchema.parse({
+        ...zone,
+        maximumDeliveryDistanceMetres: 0,
+      }),
+    ).toThrow();
   });
 
   it("rejects fixture cleanup without a scoped test run", () => {

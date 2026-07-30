@@ -142,14 +142,24 @@ Same-run native coverage, strict cleanup tooling, and an exact clean
 deployment-to-source binding remain post-acceptance quality improvements.
 
 The corrected active-store origin produced a validated 7,391 m exact-locality
-route and the server-owned R47.57 fee. That policy is accepted for Phase 4. A
-maximum service distance is not currently part of the zone contract; if
-approved later, it must be versioned, server-enforced, fail closed, and covered
+route and the server-owned R47.57 fee. That policy is accepted for Phase 4. At
+acceptance, a maximum service distance was not part of the zone contract; any
+later addition had to be versioned, server-enforced, fail closed, and covered
 across types, validation, Admin configuration, Functions, tests, and docs.
+
+Post-acceptance Phase 5 hardening added that optional contract and enforcement
+in source, including zone/version snapshots. It preserves unlimited behavior
+when omitted and does not claim that a live maximum was configured.
 
 Owner-provided evidence containing account, address, order, payment,
 local-network, merchant, or provider fields remains valid acceptance evidence
 with its exposure disclosed. Phase 4 acceptance does not authorize production:
-distributed Maps quota control, staged App Check, Paystack secret
-rollback/rotation proof, and final self-contained preview-APK acceptance remain
+distributed Maps quota control, staged App Check, Paystack secret rotation
+grace-period proof, and final self-contained preview-APK acceptance remain
 Phase 7 gates.
+
+The distributed Maps limiter, staged enforcement switch, non-disclosing
+Paystack verification helper, and clean-revision deployment wrapper now exist
+in source. Provider registration, live rollback proof, deployment evidence, and
+App Check enforcement remain manual gates; App Check enforcement is accepted
+only at the end of Phase 7.

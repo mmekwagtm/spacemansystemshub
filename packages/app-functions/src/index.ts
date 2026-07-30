@@ -277,35 +277,6 @@ export function assertUserStatusTransition(
   }
 }
 
-export type PaystackWebhookAction = "ignore" | "replay" | "create_order";
-
-export function decidePaystackWebhookAction(input: {
-  event: string;
-  eventAlreadyProcessed: boolean;
-  checkoutSessionStatus?: string;
-}): PaystackWebhookAction {
-  if (input.event !== "charge.success") {
-    return "ignore";
-  }
-  if (input.eventAlreadyProcessed) {
-    return "replay";
-  }
-  if (
-    input.checkoutSessionStatus !== "payment_pending" &&
-    input.checkoutSessionStatus !== "payment_initialized"
-  ) {
-    throw new AppError({
-      code: "precondition_failed",
-      source: "app-functions/payment-webhook",
-      message: "The checkout session is not ready for payment confirmation.",
-      userMessage:
-        "This payment cannot be confirmed for the current checkout session.",
-    });
-  }
-
-  return "create_order";
-}
-
 export function stableCheckoutSessionId(
   customerId: string,
   idempotencyKey: string,
@@ -341,7 +312,80 @@ export function assertQuoteFresh(
 }
 
 export type PaystackReconciliationStatus =
-  "processing" | "paid" | "failed" | "abandoned";
+  "processing" | "paid" | "failed" | "abandoned" | "cancelled";
+
+export interface PaystackReconciliationPlan {
+  action: "create_order" | "record_status" | "replay_paid";
+  status: PaystackReconciliationStatus;
+  sessionStatus:
+    | "payment_pending"
+    | "failed"
+    | "abandoned"
+    | "cancelled"
+    | "consumed";
+  eventStatus: "pending" | "paid" | "failed" | "cancelled";
+}
+
+export function planPaystackReconciliation(input: {
+  checkoutSessionStatus: string;
+  existingOrderId?: unknown;
+  providerStatus: PaystackReconciliationStatus;
+}): PaystackReconciliationPlan {
+  if (input.checkoutSessionStatus === "consumed") {
+    if (typeof input.existingOrderId !== "string") {
+      throw new AppError({
+        code: "precondition_failed",
+        source: "app-functions/payment-reconciliation",
+        message: "A consumed checkout has no order identifier.",
+        userMessage: "Payment status is inconsistent. Please contact support.",
+      });
+    }
+    return {
+      action: "replay_paid",
+      status: "paid",
+      sessionStatus: "consumed",
+      eventStatus: "paid",
+    };
+  }
+  if (input.providerStatus === "paid") {
+    return {
+      action: "create_order",
+      status: "paid",
+      sessionStatus: "consumed",
+      eventStatus: "paid",
+    };
+  }
+  if (input.providerStatus === "failed") {
+    return {
+      action: "record_status",
+      status: "failed",
+      sessionStatus: "failed",
+      eventStatus: "failed",
+    };
+  }
+  if (input.providerStatus === "cancelled") {
+    return {
+      action: "record_status",
+      status: "cancelled",
+      sessionStatus: "cancelled",
+      eventStatus: "cancelled",
+    };
+  }
+  if (input.providerStatus === "abandoned") {
+    return {
+      action: "record_status",
+      status: "abandoned",
+      sessionStatus: "abandoned",
+      eventStatus: "cancelled",
+    };
+  }
+  return {
+    action: "record_status",
+    status: "processing",
+    sessionStatus: "payment_pending",
+    eventStatus: "pending",
+  };
+}
 
 export function classifyPaystackStatus(
   status: string,
@@ -349,8 +393,8 @@ export function classifyPaystackStatus(
   const normalized = status.trim().toLocaleLowerCase("en-ZA");
   if (normalized === "success") return "paid";
   if (normalized === "failed" || normalized === "reversed") return "failed";
-  if (normalized === "abandoned" || normalized === "cancelled")
-    return "abandoned";
+  if (normalized === "abandoned") return "abandoned";
+  if (normalized === "cancelled") return "cancelled";
   return "processing";
 }
 
@@ -428,6 +472,19 @@ export function requirePaystackSecretForEnvironment(
     });
   }
   return secret;
+}
+
+export function appCheckEnforcementFromEnvironment(
+  value: string | undefined,
+): boolean {
+  if (value === undefined || value === "" || value === "false") return false;
+  if (value === "true") return true;
+  throw new AppError({
+    code: "precondition_failed",
+    source: "app-functions/app-check-config",
+    message: "SPACEMAN_ENFORCE_APP_CHECK must be true or false.",
+    userMessage: "App Check enforcement is not configured safely.",
+  });
 }
 
 export interface StoreOpeningPeriod {

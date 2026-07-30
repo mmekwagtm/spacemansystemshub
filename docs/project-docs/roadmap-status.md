@@ -59,8 +59,10 @@ accepted the corrected 7,391 m exact-locality route plus the composite native,
 backend, browser, provider, webhook, and cleanup record.
 
 Phase 4 is therefore **100% accepted**, and overall accepted progress is
-**62.5%**. Its same-run native test depth, maximum-distance policy, cleanup
-tooling, distributed Maps quota, App Check, Paystack rollback proof, and clean
-deployment/source binding remain explicit post-acceptance improvements. Phase 5
-(Fulfillment) is the current milestone; production remains blocked until Phase
-7.
+**62.5%**. Its production-hardening source now covers maximum-distance policy,
+cleanup tooling, distributed Maps quota, staged App Check configuration,
+Paystack rotation grace-period verification, and clean deployment/source
+binding. The live rotation/deployment evidence and same-run native depth remain
+manual; App Check provider enforcement is deferred to the end of Phase 7.
+Phase 5 (Fulfillment) is the current milestone, and production remains blocked
+until Phase 7.

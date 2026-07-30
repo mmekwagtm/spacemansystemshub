@@ -13,10 +13,12 @@ not call Google APIs directly. Address search and routing use debounce, session
 tokens, field masks, caching, lazy loading, request limits, and structured
 provider errors.
 
-The deployed Phase 4 runtime uses per-actor budgets, a 20-second address cache,
-bounded instances, and decision logs. Firebase and Google quotas remain the
-cross-instance cost boundary. Process-local budgets are not a distributed
-quota; add a shared limiter and stage App Check before production traffic.
+The accepted deployed Phase 4 runtime uses per-actor process budgets, a
+20-second address cache, bounded instances, and decision logs. The reviewed
+Phase 5 hardening source replaces those process-local budgets with a Firestore
+transactional per-actor boundary shared by Function instances. It does not
+become the deployed boundary until an approved evidenced deployment. App Check
+provider registration and enforcement remain an end-of-Phase 7 gate.
 
 Checkout fails closed when serviceability, distance, or the delivery fee cannot
 be authoritatively calculated. Driver location is foreground-only in V1 and is
@@ -26,9 +28,11 @@ Earlier visual evidence showed exact-locality routes of 219.5–238.3 km while
 the fee was clamped to R80. The affected store origin was corrected through
 the trusted `upsertStore` Function. A fresh tagged quote then returned 7,391 m,
 791 s, R47.57 delivery, and R97.57 total before exact cleanup returned zero.
-The owner accepted this exact-locality route for Phase 4. A versioned maximum
-service distance remains a recommended post-acceptance control because the fee
-cap is not a serviceability boundary.
+The owner accepted this exact-locality route for Phase 4. The reviewed
+hardening source now supports an optional versioned, server-enforced maximum
+distance and snapshots the zone/version used by new quotes and orders. Omission
+preserves the accepted unlimited default; no live policy value was configured
+by this source review.
 
 Phase 4 address autocomplete begins after three characters, is debounced by
 350 ms, uses one Google session token per selection flow, requests at most five

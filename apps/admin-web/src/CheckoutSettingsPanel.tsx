@@ -94,6 +94,9 @@ export function CheckoutSettingsPanel({
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean);
+    const maximumDistance = String(
+      data.get("maximumDeliveryDistanceMetres") ?? "",
+    ).trim();
     await run(async () => {
       const result = await saveZone.mutateAsync({
         ...(zoneId ? { deliveryZoneId: zoneId } : {}),
@@ -101,6 +104,9 @@ export function CheckoutSettingsPanel({
         active: data.get("active") === "on",
         countryCode: "ZA",
         allowedLocalities: localities,
+        ...(maximumDistance
+          ? { maximumDeliveryDistanceMetres: Number(maximumDistance) }
+          : {}),
       });
       setZoneId(result.id);
     }, "Delivery zone saved.");
@@ -194,6 +200,19 @@ export function CheckoutSettingsPanel({
                 selectedZone?.allowedLocalities.join(", ") ?? "Mabopane"
               }
               required
+            />
+          </label>
+          <label>
+            Maximum delivery distance (metres, optional)
+            <input
+              key={`${zoneId}-maximum-distance`}
+              name="maximumDeliveryDistanceMetres"
+              type="number"
+              min="1"
+              max="1000000"
+              step="1"
+              defaultValue={selectedZone?.maximumDeliveryDistanceMetres ?? ""}
+              placeholder="Unlimited"
             />
           </label>
           <label className="check-row">

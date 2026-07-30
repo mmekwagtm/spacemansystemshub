@@ -4,10 +4,6 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 const root = process.cwd();
-const evidenceDirectory = path.join(
-  root,
-  "docs/live-test-data-docs/images/phase4-images",
-);
 const adminEmail = process.env.PHASE4_ADMIN_EMAIL ?? "";
 const adminPassword = process.env.PHASE4_ADMIN_PASSWORD ?? "";
 const customerEmail = process.env.PHASE4_CUSTOMER_EMAIL ?? "";
@@ -17,6 +13,18 @@ const itemName = process.env.PHASE4_ITEM_NAME ?? "";
 const addressQuery =
   process.env.PHASE4_ADDRESS_QUERY ?? "Mabopane Central City";
 const testRunId = process.env.PHASE4_TEST_RUN_ID ?? "";
+const fixtureCollections = JSON.parse(
+  fs.readFileSync(
+    path.join(root, "firebase/functions/fixture-collections.json"),
+    "utf8",
+  ),
+) as string[];
+const evidenceDirectory = path.join(
+  root,
+  ".local-evidence",
+  "phase4-playwright",
+  testRunId,
+);
 let apiKey = "";
 
 function requireEnvironment() {
@@ -31,6 +39,8 @@ function requireEnvironment() {
   })) {
     if (!value) throw new Error(`Missing ${name} for Phase 4 browser checks.`);
   }
+  if (!/^[A-Za-z0-9_-]{16,128}$/.test(testRunId))
+    throw new Error("PHASE4_TEST_RUN_ID is not a safe evidence directory name.");
   const environment = fs.readFileSync(
     path.join(root, "apps/customer-web/.env.local"),
     "utf8",
@@ -93,10 +103,21 @@ test.afterAll(async () => {
       `Exact Phase 4 cleanup failed with HTTP ${cleanup.status}.`,
     );
   const body = (await cleanup.json()) as {
-    result?: { remaining?: number };
+    result?: { remaining?: number; collections?: string[] };
   };
   if (body.result?.remaining !== 0)
     throw new Error("Exact Phase 4 cleanup did not confirm zero residue.");
+  const reported = body.result.collections ?? [];
+  const missing = fixtureCollections.filter(
+    (collectionName) => !reported.includes(collectionName),
+  );
+  const unsupported = reported.filter(
+    (collectionName) => !fixtureCollections.includes(collectionName),
+  );
+  if (missing.length > 0 || unsupported.length > 0)
+    throw new Error(
+      `Exact Phase 4 cleanup coverage mismatch; missing=[${missing.join(",")}], unsupported=[${unsupported.join(",")}].`,
+    );
 });
 
 test("Customer Web hosted-checkout owner acceptance", async ({

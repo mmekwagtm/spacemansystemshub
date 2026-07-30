@@ -1,0 +1,19 @@
+[
+  "users",
+  "stores",
+  "items",
+  "checkoutSessions",
+  "orders",
+  "paymentEvents",
+  "orderEvents",
+  "driverAssignments",
+  "driverLocations",
+  "notifications",
+  "notificationOutbox",
+  "activities",
+  "auditLogs",
+  "feeRules",
+  "deliveryZones",
+  "importBatches",
+  "settlements"
+]

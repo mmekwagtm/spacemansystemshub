@@ -247,19 +247,18 @@ gates:
 
 - Begin Phase 5 with the paid-to-delivered lifecycle across Merchant, Admin,
   Driver, and Customer, including assignment-version safeguards.
-- Address Phase 4 post-acceptance risks when that area is next changed:
-  quote invalidation for delivery metadata, Places token ownership, blocked
-  popup recovery, transaction-level reconciliation tests, native behavior
-  tests, strict cleanup verification, run-specific evidence output, and an
-  executable Expo Go cleanup helper. Exact locations and reasons are recorded
-  in `docs/project-docs/phase-4-evidence.md`.
-- Decide and version a maximum service distance before relying on the fee cap
-  as a serviceability boundary.
-- Before production, add distributed Maps quota control, stage App Check,
-  prove current Paystack secret rollback/rotation, and bind deployment evidence
-  to an exact clean source revision.
+- The Phase 4 production-hardening recommendations now have reviewed
+  repository implementations: quote/token/popup recovery, authoritative
+  transactional reconciliation, behavioral tests, strict exact cleanup,
+  run-specific evidence, an Expo Go cleanup helper, optional versioned maximum
+  distance, distributed Maps quotas, staged App Check configuration, and safe
+  rotation-grace-period/deployment-evidence tooling.
+- Manual Paystack rotation grace-period proof and an evidenced deployment
+  remain external actions. No live maximum-distance value was configured.
 - Build and accept self-contained EAS preview APKs only at the end of Phase 7
   as part of final quality and launch.
+- Register and validate App Check providers, then enable enforcement only at
+  the end of the approved Phase 7 deployment gate.
 - No Phase 0 through Phase 4 acceptance action remains.
 
 ## Next phase gate

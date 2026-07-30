@@ -61,6 +61,9 @@ describe("Phase 4 checkout configuration", () => {
     expect(screen.getByLabelText("Allowed ZA localities")).toHaveValue(
       "Mabopane",
     );
+    expect(
+      screen.getByLabelText("Maximum delivery distance (metres, optional)"),
+    ).toHaveValue(null);
     expect(screen.getByLabelText("Base fee (rand)")).toHaveValue(20);
     expect(screen.getByLabelText("Included distance (metres)")).toHaveValue(
       3_000,
