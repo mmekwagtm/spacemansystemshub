@@ -3,8 +3,8 @@
 ## Status
 
 Phase 5 fulfillment remains pending. The production-hardening prerequisites
-carried forward from the accepted Phase 4 checkout review are implemented at
-source level and await the manual cloud actions in
+carried forward from the accepted Phase 4 checkout review are implemented,
+validated, and deployed to the approved development scope recorded in
 `docs/project-docs/phase-5-evidence.md`.
 
 ## Production-hardening checklist
@@ -30,9 +30,9 @@ source level and await the manual cloud actions in
 - [x] Provide non-disclosing Paystack rotation/grace-period verification.
 - [x] Bind Firebase deployment evidence to a clean Git revision and explicit
   Firebase project.
-- [ ] Deploy through the evidenced wrapper and retain its generated record.
+- [x] Deploy through the evidenced wrapper and retain its generated record.
 
-The unchecked item requires an approved external Firebase action.
+All Phase 5 production-hardening checklist items are complete.
 App Check provider registration and enforcement is deferred to the final Phase
 7 acceptance gate. None of these actions change the accepted Phase 4 status or
 start Phase 5 fulfillment acceptance.

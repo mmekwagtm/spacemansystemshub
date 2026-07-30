@@ -57,23 +57,24 @@ review rerun passed the same complete gate after the authoritative
 reconciliation, service-area snapshot, cleanup failure handling, and
 behavioral-test gaps were closed. An earlier resource-heavy parallel diagnostic
 timed out in Customer Web; its corrected checkout suite passed 11/11 in
-isolation and again inside the final workspace test gate.
+isolation and again inside the final workspace test gate. On 2026-07-30, the
+complete validation gate passed again after the file-based Firebase Functions
+discovery and bounded timeout fix.
 
-## Manual external actions
+## Evidenced development deployment
 
-1. Keep version `3` as the only enabled Paystack Secret Manager version and do
-   not reactivate retired version `2`. During an approved rotation window,
-   [generate a replacement Paystack key and choose when the old key expires](https://support.paystack.com/en/articles/2123458).
-   Add the replacement as a new Secret Manager version, then run
-   `corepack pnpm verify:paystack:rotation` with the current version, replacement
-   version, environment, and approved reference identifiers. Verify both during
-   the provider-controlled overlap, deploy the replacement through an approved
-   exact scope, and confirm old-key expiry before disabling its Secret Manager
-   version. Do not keep a second enabled version solely for permanent rollback.
-2. The Firebase deployment scope is not yet documented. Do not run
-   `corepack pnpm deploy:firebase:evidenced` until the exact scope is reviewed
-   and separately approved. The wrapper must bind that scope and the development
-   project to a clean committed revision.
+- The approved wrapper deployed revision
+  `df97a2161f7f70db0dbb0f3a56b1f63b15b98bc3` to development project
+  `spacemansystemsbackend`.
+- Scope was limited to `initializePaystackPayment`, `verifyPaystackPayment`,
+  and `handlePaystackWebhook` in `africa-south1`.
+- Firebase reported successful update operations for all three Functions.
+- The generated record is
+  `.local-evidence/deployments/2026-07-30T10-58-39.619Z-spacemansystemsbackend-df97a2161f7f.json`.
+  It records `status: deployed`, exit code `0`, the exact project, scope,
+  revision, timestamps, and a clean worktree before and after deployment.
+- The record contains no `sk_test_` or `sk_live_` value. It remains ignored and
+  was not committed or pushed.
 
 App Check provider registration, measured rollout, rollback validation, and
 enforcement are tracked only at the end of Phase 7.
