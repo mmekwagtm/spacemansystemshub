@@ -40,7 +40,9 @@ has been accepted.
   verification result, and transaction status; secret values are never printed.
 - `deploy:firebase:evidenced` requires a clean Git tree plus explicit project
   and scope, then stores the exact revision and deployment result under the
-  ignored `.local-evidence/deployments/` directory.
+  ignored `.local-evidence/deployments/` directory. It uses Firebase CLI's
+  file-based Functions manifest discovery to avoid unreliable loopback
+  discovery without changing the deployed scope.
 
 ## Validation record
 

@@ -41,7 +41,15 @@ const deploy = spawnSync(
     "--only",
     scope,
   ],
-  { cwd: root, encoding: "utf8", stdio: "inherit" },
+  {
+    cwd: root,
+    encoding: "utf8",
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      FIREBASE_FUNCTIONS_DISCOVERY_OUTPUT_PATH: "true",
+    },
+  },
 );
 const completedAt = new Date().toISOString();
 const status = deploy.error || deploy.status !== 0 ? "failed" : "deployed";
