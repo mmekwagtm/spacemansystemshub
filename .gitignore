@@ -27,3 +27,4 @@ apps/*/google-services.json
 apps/*/GoogleService-Info.plist
 *.keystore
 *.mobileprovision
+_design-reference/

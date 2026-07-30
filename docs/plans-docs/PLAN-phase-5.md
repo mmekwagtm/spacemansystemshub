@@ -30,13 +30,9 @@ source level and await the manual cloud actions in
 - [x] Provide non-disclosing Paystack rotation/grace-period verification.
 - [x] Bind Firebase deployment evidence to a clean Git revision and explicit
   Firebase project.
-- [ ] Execute an approved Paystack key rotation using the provider-selected
-  expiry grace period: verify the current and replacement keys during the
-  temporary overlap, deploy the replacement, then confirm old-key expiry.
-  Do not retain a second enabled version solely for permanent rollback.
 - [ ] Deploy through the evidenced wrapper and retain its generated record.
 
-The unchecked items require approved external Firebase or Paystack actions.
+The unchecked item requires an approved external Firebase action.
 App Check provider registration and enforcement is deferred to the final Phase
 7 acceptance gate. None of these actions change the accepted Phase 4 status or
 start Phase 5 fulfillment acceptance.
