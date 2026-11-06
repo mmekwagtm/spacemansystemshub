@@ -19,6 +19,7 @@ deployment is accepted.
 - [Architecture decisions](docs/project-docs/architecture-decisions.md)
 - [Canonical data model](docs/project-docs/data-model.md)
 - [Environment setup](docs/project-docs/environment-setup.md)
+- [Production deployment](docs/project-docs/production-deployment.md)
 - [Roadmap status](docs/project-docs/roadmap-status.md)
 
 The original blueprints under `docs/architecture-docs/` and

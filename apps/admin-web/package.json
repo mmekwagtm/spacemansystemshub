@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.app.json --noEmit && vite build",
+    "build:live": "tsc -p tsconfig.app.json --noEmit && vite build --mode live",
     "dev": "vite",
     "lint": "eslint src --max-warnings 0",
     "test": "vitest run",

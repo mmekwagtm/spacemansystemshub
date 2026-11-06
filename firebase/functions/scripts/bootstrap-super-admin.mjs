@@ -8,8 +8,17 @@ const displayNameArgument = process.argv.find((argument) => argument.startsWith(
 const email = emailArgument?.slice("--email=".length).trim().toLowerCase();
 const displayName = displayNameArgument?.slice("--display-name=".length).trim() || "Spaceman Super Admin";
 
-if (projectId !== "spacemansystemsbackend" || process.env.SPACEMAN_ENVIRONMENT !== "development") {
-  throw new Error("Super-admin bootstrap is restricted to the spacemansystemsbackend development project.");
+// Each allowed project must be named together with its exact environment.
+const allowedEnvironments = {
+  spacemansystemsbackend: "development",
+  "projectsbackend-831c6": "production"
+};
+const expectedEnvironment = allowedEnvironments[projectId ?? ""];
+if (!expectedEnvironment || process.env.SPACEMAN_ENVIRONMENT !== expectedEnvironment) {
+  throw new Error(
+    "Super-admin bootstrap needs GOOGLE_CLOUD_PROJECT and SPACEMAN_ENVIRONMENT set to an allowed pair: " +
+      "spacemansystemsbackend + development, or projectsbackend-831c6 + production."
+  );
 }
 if (!email || !email.includes("@")) {
   throw new Error("Pass the intended administrator email as --email=address@example.com.");
@@ -74,5 +83,5 @@ await authentication.setCustomUserClaims(account.uid, {
   ...scope
 });
 
-console.log("Development super-admin profile and claims are ready.");
+console.log(`Super-admin profile and claims are ready in ${projectId} (${expectedEnvironment}).`);
 console.log("Use the Admin web password-setup form for the supplied email, then sign in.");

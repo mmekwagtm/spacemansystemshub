@@ -14,6 +14,8 @@
     "cleanup:phase4:expo-go": "node tools/scripts/cleanup-phase4-expo-go.mjs",
     "deploy:firebase:evidenced": "node tools/scripts/run-firebase-deploy-with-evidence.mjs",
     "docs:check": "node tools/scripts/check-docs.mjs",
+    "live:build": "corepack pnpm --filter @spaceman/customer-web --filter @spaceman/admin-web --filter @spaceman/merchant-web run build:live",
+    "live:prepare": "node tools/scripts/prepare-live-environment.mjs",
     "lint": "corepack pnpm -r --if-present run lint",
     "test": "corepack pnpm -r --if-present run test",
     "test:web:e2e:phase4": "node tools/scripts/run-phase4-playwright.mjs",

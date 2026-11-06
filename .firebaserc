@@ -1,7 +1,16 @@
 {
   "projects": {
-    "development": "spacemansystemsbackend"
+    "development": "spacemansystemsbackend",
+    "production": "projectsbackend-831c6"
   },
-  "targets": {},
+  "targets": {
+    "projectsbackend-831c6": {
+      "hosting": {
+        "customer-web": ["projectsbackend-831c6"],
+        "admin-web": ["projectsbackend-831c6-admin"],
+        "merchant-web": ["projectsbackend-831c6-merchant"]
+      }
+    }
+  },
   "etags": {}
 }

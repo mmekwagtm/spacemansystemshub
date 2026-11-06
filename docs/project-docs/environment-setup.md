@@ -3,9 +3,13 @@
 ## Environment policy
 
 All five applications and Cloud Functions use one shared, real Firebase
-**development** project. Firebase emulators are not used. Production is a
-separate, gated future environment and must not be configured or deployed
-without explicit approval.
+**development** project. Firebase emulators are not used.
+
+Production is the separate project `projectsbackend-831c6` (`.firebaserc`
+alias `production`), approved by the owner on 2026-11-06 (AD-017). Its
+configuration and owner-run steps are in `production-deployment.md`. Nothing
+is deployed there from a cloud coding session, and development data, test
+fixtures and live-test scripts never target it.
 
 ## Current development Firebase state
 
@@ -39,6 +43,23 @@ without explicit approval.
   same-event signed-webhook replay was retained. This is an accepted
   development limitation; a current rollback/rotation proof remains required
   before Phase 7 production acceptance.
+
+## Production configuration
+
+- `.firebaserc` maps the production Hosting targets: `customer-web` to the
+  default site, `admin-web` to `projectsbackend-831c6-admin`, and
+  `merchant-web` to `projectsbackend-831c6-merchant`. The development project
+  has no Hosting targets.
+- `corepack pnpm live:prepare -- --project=projectsbackend-831c6` writes the
+  ignored `.env.live.local` files for the three web apps and
+  `firebase/functions/.env.projectsbackend-831c6`
+  (`SPACEMAN_ENVIRONMENT=production`). `corepack pnpm live:build` builds the
+  web apps with `vite build --mode live`; a plain `build` still uses
+  `.env.local`.
+- `firebase.json` serves every Hosting path with `Cache-Control: no-cache`
+  except hashed `/assets/**` files, which are cached for a year.
+- `bootstrap:super-admin` accepts only `spacemansystemsbackend` with
+  `development` or `projectsbackend-831c6` with `production`.
 
 ## Configuration rules
 

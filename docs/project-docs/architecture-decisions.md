@@ -179,3 +179,22 @@ of Paystack checkout for a WhatsApp store is a follow-up payments task.
 
 Only kitchens that consent are listed; Google Places results are never shown
 to customers as listings.
+
+## AD-017: Production project and domains
+
+On 2026-11-06 the owner approved deploying the platform to the Firebase
+project `projectsbackend-831c6` with Customer Web on `spacemanprojects.co.za`
+(replacing what the domain served), Admin Web on
+`admin.spacemanprojects.co.za` and Merchant Web on
+`merchant.spacemanprojects.co.za`. The project starts empty; no development
+data is copied. The development project `spacemansystemsbackend` is unchanged
+and remains the only target for tests and fixtures.
+
+The owner runs the deployment from a logged-in workstation using
+`production-deployment.md` and the evidenced deploy wrapper. Functions run with
+`SPACEMAN_ENVIRONMENT=production`, Paystack stays in test mode until the owner
+switches explicitly, card checkout stays off until enabled in Admin Web, and
+App Check enforcement remains deferred to Phase 7. Launching kitchens use the
+WhatsApp channel (AD-016). This approval does not mark Phase 5, 6 or 7 as
+accepted.
+

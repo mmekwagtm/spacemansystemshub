@@ -156,6 +156,16 @@ deploy wrapper, enable the Google provider and authorized domains, create the
 first consenting kitchen as a WhatsApp store in Admin Web, and import its menu.
 It does not change the Phase 5 status or overall progress.
 
+## Production deployment preparation (not yet deployed)
+
+The repository is configured for the owner-approved production project
+`projectsbackend-831c6` (AD-017): `.firebaserc` production alias and Hosting
+targets, `live:prepare` and `live:build` scripts, Hosting cache headers, and a
+production pair in `bootstrap:super-admin`. `live:prepare` was tested against
+a stubbed Firebase CLI and `live:build` produced all three web apps for that
+project. No production resource has been created or deployed yet; the
+owner-run steps are in `production-deployment.md`.
+
 ## Dependency and cleanup state
 
 - The root pnpm installation and lockfile are synchronized. SDK-compatible
