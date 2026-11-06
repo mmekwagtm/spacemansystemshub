@@ -51,6 +51,14 @@ audit data remain protected from all direct clients.
   and email from Firebase Auth, creates the active customer profile, and sets
   claims. Unverified customers may read only their own profile and cannot use
   protected platform Functions.
+- Customer Web also offers Google sign-in through the web-only
+  `@spaceman/app-firebase/web-auth` adapter (popup, with a redirect fallback
+  when the popup is blocked). Native apps do not import it. On first Google
+  sign-in, `createCustomerIdentityService` calls the same
+  `registerCustomerProfile` command with the Google display name; an existing
+  profile is never re-registered. Google accounts arrive email-verified. The
+  Google provider and the site's authorized domains are enabled by the owner in
+  the Firebase console.
 - Super-admins create Merchant, Driver, and Admin identities through the
   trusted Function. Staff use Firebase password-reset email as their setup
   link; staff cannot self-assign roles, status, or scope.

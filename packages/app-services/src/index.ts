@@ -3,7 +3,7 @@ import type {
   CatalogMediaGateway,
   CatalogMediaUpload,
 } from "@spaceman/app-firebase";
-import type { AppError } from "@spaceman/app-errors";
+import { AppError } from "@spaceman/app-errors";
 import type {
   Page,
   PageRequest,
@@ -111,10 +111,80 @@ export interface IdentityService {
   syncClaims(): Promise<IdentitySession | null>;
 }
 
+/** Customer Web identity: the shared flows plus Google and profile completion. */
+export interface CustomerIdentityService extends IdentityService {
+  /** True when the platform gateway supports Google sign-in (web only). */
+  readonly googleSignInAvailable: boolean;
+  /**
+   * Signs in with Google and creates the customer profile on first use.
+   * Resolves `null` when the browser left for Google's redirect page.
+   */
+  signInWithGoogle(): Promise<IdentitySession | null>;
+  /** Creates the customer profile for a signed-in account that has none. */
+  completeCustomerProfile(
+    input: BootstrapCustomerProfileInput,
+  ): Promise<IdentitySession | null>;
+}
+
 export interface IdentityAdminService {
   inviteStaff(input: CreateStaffUserInput): Promise<CommandResult>;
   updateStatus(input: UpdateUserStatusInput): Promise<CommandResult>;
   updateScope(input: UpdateUserScopeInput): Promise<CommandResult>;
+}
+
+function displayNameFor(
+  displayName: string | null | undefined,
+  email: string,
+): string {
+  const name = displayName?.trim();
+  if (name) return name.slice(0, 120);
+  const local = email.split("@")[0]?.trim();
+  return local ? local.slice(0, 120) : "Spaceman customer";
+}
+
+export function createCustomerIdentityService(
+  authGateway: AuthGateway,
+  callableGateway: CallableGateway,
+): CustomerIdentityService {
+  const base = createIdentityService(authGateway, callableGateway);
+
+  async function ensureProfile(
+    input: BootstrapCustomerProfileInput,
+  ): Promise<IdentitySession | null> {
+    const session = await authGateway.refreshSession();
+    if (!session || session.profile) return session;
+    await callableGateway.invoke(
+      "registerCustomerProfile",
+      bootstrapCustomerProfileInputSchema.parse(input),
+    );
+    return authGateway.refreshSession(true);
+  }
+
+  return {
+    ...base,
+    googleSignInAvailable: authGateway.signInWithGoogle !== undefined,
+    async signInWithGoogle() {
+      if (!authGateway.signInWithGoogle) {
+        throw new AppError({
+          code: "precondition_failed",
+          source: "app-services/identity/google",
+          message: "Google sign-in is not available on this platform.",
+          userMessage:
+            "Google sign-in isn't available here. Use email instead.",
+        });
+      }
+      const result = await authGateway.signInWithGoogle();
+      if (!result) return null;
+      const session = await authGateway.refreshSession();
+      if (!session) return null;
+      return ensureProfile({
+        displayName: displayNameFor(result.displayName, session.email),
+      });
+    },
+    completeCustomerProfile(input) {
+      return ensureProfile(input);
+    },
+  };
 }
 
 export function createIdentityAdminService(

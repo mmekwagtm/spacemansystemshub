@@ -10,6 +10,11 @@ export interface AuthGateway {
   signOut(): Promise<void>;
   sendCurrentUserEmailVerification(): Promise<void>;
   sendPasswordResetEmail(email: string): Promise<void>;
+  /**
+   * Web only; native gateways leave it undefined. Resolves `null` when the
+   * browser was sent to Google's sign-in page because a popup was blocked.
+   */
+  signInWithGoogle?(): Promise<{ uid: string; displayName: string | null } | null>;
   refreshSession(forceTokenRefresh?: boolean): Promise<IdentitySession | null>;
   subscribe(
     listener: (session: IdentitySession | null) => void,

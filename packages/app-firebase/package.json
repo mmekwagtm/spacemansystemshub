@@ -7,6 +7,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./web-auth": {
+      "types": "./src/web-auth.ts",
+      "default": "./src/web-auth.ts"
     }
   },
   "types": "./src/index.ts",
