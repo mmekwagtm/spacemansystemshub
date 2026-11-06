@@ -45,6 +45,8 @@ const deploy = spawnSync(
     cwd: root,
     encoding: "utf8",
     stdio: "inherit",
+    // Windows runs `corepack` through a .cmd shim, which Node only spawns via a shell.
+    shell: process.platform === "win32",
     env: {
       ...process.env,
       FIREBASE_FUNCTIONS_DISCOVERY_OUTPUT_PATH: "true",

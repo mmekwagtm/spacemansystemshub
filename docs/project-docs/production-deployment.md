@@ -16,6 +16,11 @@ coding sessions have no Google credentials and must not deploy. Run commands
 from the repository root unless a step says otherwise. Steps marked
 **console** are done in the Firebase or Google Cloud console.
 
+On Windows, use Git Bash (the `VAR=value command` lines below need a Bash
+shell) and keep the clone outside OneDrive, for example `~/dev`; OneDrive
+syncing `node_modules` slows installs and can break pnpm's links. The scripts
+spawn `corepack` through a shell on Windows.
+
 ## 1. One-time project setup (console)
 
 1. Upgrade the project to the **Blaze** plan and set a budget alert.

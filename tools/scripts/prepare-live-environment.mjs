@@ -57,7 +57,8 @@ function firebase(commandArguments) {
       "--json",
       "--non-interactive",
     ],
-    { cwd: root, encoding: "utf8" },
+    // Windows runs `corepack` through a .cmd shim, which Node only spawns via a shell.
+    { cwd: root, encoding: "utf8", shell: process.platform === "win32" },
   );
   const output = result.stdout ?? "";
   let parsed = null;
