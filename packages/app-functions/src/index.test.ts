@@ -27,7 +27,47 @@ import {
   stableCatalogImportItemId,
   stableCheckoutSessionId,
   stablePaystackReference,
+  storeOrderChannelDocument,
 } from "./index";
+
+describe("store ordering channel", () => {
+  it("normalizes WhatsApp fields and clears a removed number", () => {
+    expect(
+      storeOrderChannelDocument({
+        orderChannel: "whatsapp",
+        whatsappE164: "+27723329351",
+        whatsappDeliveryAreas: [
+          { name: " Mabopane ", fee: { amountMinor: 4_000, currency: "ZAR" } },
+        ],
+      }),
+    ).toEqual({
+      orderChannel: "whatsapp",
+      whatsappE164: "+27723329351",
+      whatsappDeliveryAreas: [
+        { name: "Mabopane", fee: { amountMinor: 4_000, currency: "ZAR" } },
+      ],
+    });
+    expect(
+      storeOrderChannelDocument({
+        orderChannel: "paystack",
+        whatsappDeliveryAreas: [],
+      }),
+    ).toEqual({
+      orderChannel: "paystack",
+      whatsappE164: null,
+      whatsappDeliveryAreas: [],
+    });
+  });
+
+  it("rejects a WhatsApp store without a number", () => {
+    expect(() =>
+      storeOrderChannelDocument({
+        orderChannel: "whatsapp",
+        whatsappDeliveryAreas: [],
+      }),
+    ).toThrow(/WhatsApp number/);
+  });
+});
 
 describe("trusted command policy", () => {
   it("derives assignment action reasons without stale no-driver state", () => {

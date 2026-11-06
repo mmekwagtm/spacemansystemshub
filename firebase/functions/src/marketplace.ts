@@ -15,6 +15,7 @@ import {
   decideCatalogImportCommit,
   hasUsableOpeningHours,
   stableCatalogImportItemId,
+  storeOrderChannelDocument,
 } from "@spaceman/app-functions";
 import { ProviderRequestGate } from "@spaceman/app-maps";
 import {
@@ -530,6 +531,24 @@ async function writeWithPublishedMedia(
   );
 }
 
+function storeOrderChannelFields(
+  input: ReturnType<typeof upsertStoreInputSchema.parse>,
+): Record<string, unknown> {
+  let fields: ReturnType<typeof storeOrderChannelDocument>;
+  try {
+    fields = storeOrderChannelDocument(input);
+  } catch (error) {
+    if (error instanceof AppError)
+      throw new HttpsError("invalid-argument", error.message);
+    throw error;
+  }
+  return {
+    orderChannel: fields.orderChannel,
+    whatsappE164: fields.whatsappE164 ?? FieldValue.delete(),
+    whatsappDeliveryAreas: fields.whatsappDeliveryAreas,
+  };
+}
+
 function itemDocument(
   actor: Actor,
   storeId: string,
@@ -615,6 +634,7 @@ export const upsertStore = onCall(
           ? {}
           : { heroMedia: heroMedia.media }),
         ...(input.imageUrl === undefined ? {} : { imageUrl: input.imageUrl }),
+        ...storeOrderChannelFields(input),
         ...metadata(actor, existingSnapshot.exists),
       },
       { merge: true },

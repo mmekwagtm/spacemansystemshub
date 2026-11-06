@@ -163,3 +163,19 @@ Paystack verification helper, and clean-revision deployment wrapper now exist
 in source. Provider registration, live rollback proof, deployment evidence, and
 App Check enforcement remain manual gates; App Check enforcement is accepted
 only at the end of Phase 7.
+
+## AD-016: WhatsApp ordering channel for the kitchen pilot
+
+Phase 5 fulfillment is not built and live Paystack is not verified, so a store
+may use `orderChannel: whatsapp` while kitchens are piloted. Customer Web shows
+the store's real catalog, builds a one-store cart, and opens the store's
+WhatsApp number with a pre-filled order message (items, quantities, prices,
+area fee, address, optional map pin, name and note). No checkout session,
+payment, or order document is created for these stores, and no client writes
+Firestore. The channel, number, and flat area fees are admin-only `upsertStore`
+fields. Paystack remains the default channel and its server-owned quote,
+verification, and exactly-once order rules are unchanged. Server-side refusal
+of Paystack checkout for a WhatsApp store is a follow-up payments task.
+
+Only kitchens that consent are listed; Google Places results are never shown
+to customers as listings.

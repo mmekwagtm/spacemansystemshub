@@ -11,6 +11,7 @@ import {
   testFixtureMutationInputSchema,
   updateMerchantStoreInputSchema,
   upsertDeliveryZoneInputSchema,
+  upsertStoreInputSchema,
 } from "./index";
 
 describe("command validation", () => {
@@ -152,6 +153,62 @@ describe("command validation", () => {
 
     expect(result.storeId).toBe("store-a");
     expect(result).not.toHaveProperty("address");
+  });
+
+  it("validates store ordering channels and WhatsApp delivery areas", () => {
+    const base = {
+      merchantId: "merchant-a",
+      name: "Phala's Eating House",
+      status: "draft" as const,
+      deliveryZoneIds: ["mabopane"],
+      address: {
+        label: "Kitchen",
+        formattedAddress: "6233 Block S, Mabopane Unit S",
+        coordinates: { latitude: -25.5, longitude: 28.1 },
+      },
+    };
+    const legacy = upsertStoreInputSchema.parse(base);
+    expect(legacy.orderChannel).toBe("paystack");
+    expect(legacy.whatsappDeliveryAreas).toEqual([]);
+
+    const whatsapp = upsertStoreInputSchema.parse({
+      ...base,
+      orderChannel: "whatsapp",
+      whatsappE164: "+27723329351",
+      whatsappDeliveryAreas: [
+        { name: "Mabopane", fee: { amountMinor: 4_000, currency: "ZAR" } },
+        { name: "Soshanguve", fee: { amountMinor: 5_000, currency: "ZAR" } },
+      ],
+    });
+    expect(whatsapp.whatsappDeliveryAreas).toHaveLength(2);
+
+    expect(() =>
+      upsertStoreInputSchema.parse({ ...base, orderChannel: "whatsapp" }),
+    ).toThrow(/WhatsApp number/);
+    expect(() =>
+      upsertStoreInputSchema.parse({
+        ...base,
+        orderChannel: "whatsapp",
+        whatsappE164: "072 332 9351",
+      }),
+    ).toThrow();
+    expect(() =>
+      upsertStoreInputSchema.parse({
+        ...base,
+        whatsappDeliveryAreas: [
+          { name: "Mabopane", fee: { amountMinor: 4_000, currency: "ZAR" } },
+          { name: "mabopane", fee: { amountMinor: 5_000, currency: "ZAR" } },
+        ],
+      }),
+    ).toThrow(/unique/);
+    expect(() =>
+      upsertStoreInputSchema.parse({
+        ...base,
+        whatsappDeliveryAreas: [
+          { name: "Mabopane", fee: { amountMinor: -1, currency: "ZAR" } },
+        ],
+      }),
+    ).toThrow();
   });
 
   it("accepts only bounded catalog images", () => {

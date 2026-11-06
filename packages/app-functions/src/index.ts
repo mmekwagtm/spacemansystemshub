@@ -541,6 +541,46 @@ export function hasUsableOpeningHours(value: unknown): boolean {
   );
 }
 
+export interface StoreOrderChannelInput {
+  orderChannel: "paystack" | "whatsapp";
+  whatsappE164?: string | undefined;
+  whatsappDeliveryAreas: ReadonlyArray<{
+    name: string;
+    fee: { amountMinor: number; currency: "ZAR" };
+  }>;
+}
+
+/**
+ * Canonical store fields for the ordering channel, from a validated
+ * `upsertStore` input. `whatsappE164: null` means the stored number must be
+ * removed, so a form that clears the number never leaves a stale one behind.
+ */
+export function storeOrderChannelDocument(input: StoreOrderChannelInput): {
+  orderChannel: "paystack" | "whatsapp";
+  whatsappE164: string | null;
+  whatsappDeliveryAreas: Array<{
+    name: string;
+    fee: { amountMinor: number; currency: "ZAR" };
+  }>;
+} {
+  if (input.orderChannel === "whatsapp" && !input.whatsappE164) {
+    throw new AppError({
+      code: "invalid_input",
+      source: "app-functions/store-order-channel",
+      message: "A WhatsApp-ordering store requires a WhatsApp number.",
+      userMessage: "Add the store's WhatsApp number before saving.",
+    });
+  }
+  return {
+    orderChannel: input.orderChannel,
+    whatsappE164: input.whatsappE164 ?? null,
+    whatsappDeliveryAreas: input.whatsappDeliveryAreas.map((area) => ({
+      name: area.name.trim(),
+      fee: { amountMinor: area.fee.amountMinor, currency: "ZAR" },
+    })),
+  };
+}
+
 export function isStoreOpenAt(
   periods: readonly StoreOpeningPeriod[],
   now: Date = new Date(),

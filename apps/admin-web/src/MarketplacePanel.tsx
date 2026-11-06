@@ -16,6 +16,8 @@ import type {
 } from "@spaceman/app-types";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { orderChannelFrom } from "./storeOrderChannel";
+
 interface MarketplacePanelProps {
   ownerId: string;
   service: MarketplaceService;
@@ -137,6 +139,7 @@ export function MarketplacePanel({ ownerId, service }: MarketplacePanelProps) {
           amountMinor: Number(data.get("minimumOrder")),
           currency: "ZAR",
         },
+        ...orderChannelFrom(data),
       };
       const file = data.get("cardImage");
       const media =
@@ -336,6 +339,33 @@ export function MarketplacePanel({ ownerId, service }: MarketplacePanelProps) {
             />
           </label>
           <OpeningHoursFields />
+          <fieldset>
+            <legend>How customers order</legend>
+            <label>
+              Order channel
+              <select name="orderChannel" defaultValue="paystack">
+                <option value="paystack">Paystack checkout</option>
+                <option value="whatsapp">WhatsApp to the kitchen</option>
+              </select>
+            </label>
+            <label>
+              WhatsApp number
+              <input
+                name="whatsappE164"
+                type="tel"
+                inputMode="tel"
+                placeholder="072 123 4567"
+              />
+            </label>
+            <label>
+              WhatsApp delivery areas (one per line, fee in rand)
+              <textarea
+                name="whatsappDeliveryAreas"
+                placeholder={"Mabopane = 40\nSoshanguve = 50"}
+                rows={3}
+              />
+            </label>
+          </fieldset>
           <label>
             Store card image
             <input

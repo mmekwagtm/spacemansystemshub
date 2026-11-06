@@ -175,7 +175,16 @@ const storeFieldsSchema = z.object({
   heroMedia: catalogMediaSchema.optional(),
 });
 
-export const upsertStoreInputSchema = z.object({
+export const storeOrderChannelSchema = z.enum(["paystack", "whatsapp"]);
+
+export const storeDeliveryAreaSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  fee: moneySchema.refine((value) => value.amountMinor >= 0, {
+    message: "Delivery fee must not be negative.",
+  }),
+});
+
+const upsertStoreFieldsSchema = z.object({
   storeId: idSchema.optional(),
   merchantId: idSchema,
   name: z.string().trim().min(1).max(160),
@@ -190,7 +199,30 @@ export const upsertStoreInputSchema = z.object({
   cardMedia: catalogMediaSchema.optional(),
   heroMedia: catalogMediaSchema.optional(),
   imageUrl: z.string().url().max(2_048).optional(),
+  orderChannel: storeOrderChannelSchema.default("paystack"),
+  whatsappE164: phoneE164Schema.optional(),
+  whatsappDeliveryAreas: z.array(storeDeliveryAreaSchema).max(10).default([]),
 });
+
+export const upsertStoreInputSchema = upsertStoreFieldsSchema.superRefine(
+  (value, context) => {
+    if (value.orderChannel === "whatsapp" && value.whatsappE164 === undefined)
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["whatsappE164"],
+        message: "A WhatsApp-ordering store requires a WhatsApp number.",
+      });
+    const names = value.whatsappDeliveryAreas.map((area) =>
+      area.name.toLocaleLowerCase("en-ZA"),
+    );
+    if (new Set(names).size !== names.length)
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["whatsappDeliveryAreas"],
+        message: "Delivery area names must be unique.",
+      });
+  },
+);
 
 export const submitMerchantStoreInputSchema = storeFieldsSchema.extend({
   storeId: idSchema.optional(),

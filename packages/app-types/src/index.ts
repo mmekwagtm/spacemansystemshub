@@ -109,6 +109,20 @@ export interface OpeningHoursPeriod {
   closesAt?: string;
 }
 
+/**
+ * How a store receives customer orders.
+ * - `paystack`: the hosted Paystack checkout (default when absent).
+ * - `whatsapp`: the customer's order is handed to the store's WhatsApp number.
+ *   No checkout session, payment or `orders/{orderId}` document is created.
+ */
+export type StoreOrderChannel = "paystack" | "whatsapp";
+
+/** A flat delivery fee for one named area, used by WhatsApp-channel stores. */
+export interface StoreDeliveryArea {
+  name: string;
+  fee: Money;
+}
+
 export interface Store extends DocumentMetadata {
   id: string;
   merchantId: string;
@@ -129,6 +143,9 @@ export interface Store extends DocumentMetadata {
   heroMedia?: CatalogMedia;
   imageUrl?: string;
   rejectionReason?: string;
+  orderChannel?: StoreOrderChannel;
+  whatsappE164?: string;
+  whatsappDeliveryAreas?: StoreDeliveryArea[];
 }
 
 export interface Item extends DocumentMetadata {
@@ -609,6 +626,9 @@ export interface UpsertStoreInput {
   cardMedia?: CatalogMedia;
   heroMedia?: CatalogMedia;
   imageUrl?: string;
+  orderChannel?: StoreOrderChannel;
+  whatsappE164?: string;
+  whatsappDeliveryAreas?: StoreDeliveryArea[];
 }
 
 export interface SubmitMerchantStoreInput {

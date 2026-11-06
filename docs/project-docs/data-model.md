@@ -84,6 +84,21 @@ canonical pending merchant may create only their own draft onboarding record;
 an active merchant may update only explicitly permitted fields for an assigned
 store.
 
+### Store ordering channel
+
+`stores/{storeId}` may also carry `orderChannel` (`paystack` or `whatsapp`),
+`whatsappE164`, and `whatsappDeliveryAreas` (at most ten `{ name, fee }`
+entries, fee in integer ZAR minor units). A missing `orderChannel` means
+`paystack`, so existing stores keep the hosted checkout. A `whatsapp` store
+must have a valid E.164 `whatsappE164`. These fields are admin-only: they are
+written by `upsertStore` and are not part of the merchant update command.
+
+A `whatsapp` store's customer order is composed in Customer Web and handed to
+the store's WhatsApp number. It creates no checkout session, payment event, or
+`orders/{orderId}` document; the kitchen confirms price and payment directly
+with the customer. `whatsappDeliveryAreas` are display and message fees only,
+not server quotes. See AD-016.
+
 ## Phase 4 checkout contract
 
 `deliveryZones/{zoneId}` defines an active ZA locality allowlist,
