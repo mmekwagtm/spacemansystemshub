@@ -101,7 +101,7 @@ owner explicitly accepted Phase 4 on 2026-07-29.
 - Raw Galaxy Note9 captures show address selection, a quote, hosted test
   payment, return, paid-order reconciliation, and an abandoned/no-order state.
   The later tagged Expo Go rerun cleared the persisted cart, rendered `store to
-  r`, added `Kiddos Meal`, completed sign-in, selected a Mabopane address, and
+r`, added `Kiddos Meal`, completed sign-in, selected a Mabopane address, and
   displayed the R47.57 / 7.4 km / R97.57 server quote. Its exact cleanup
   deleted one checkout session and returned zero remaining. The targeted
   crash/error query returned no matching markers. The owner accepted this
@@ -137,6 +137,24 @@ owner explicitly accepted Phase 4 on 2026-07-29.
 - Root validation now includes a dependency-free architecture-boundary gate.
   It rejects app-to-app and package-to-app imports, direct Firebase imports outside
   explicit app adapters, and web/native cross-imports.
+
+## Customer Web redesign and WhatsApp channel (source only)
+
+Customer Web now uses the Spaceman Deliveries design: home with search,
+categories and open/delivery filters; restaurant, dish, dark cart, exact
+location pin, account (email plus Google) and order-sent screens. Stores may
+use the admin-only `orderChannel: whatsapp` (AD-016): the cart composes an
+order message for the kitchen's WhatsApp and creates no checkout or order.
+Paystack stores keep the accepted Phase 4 checkout inside the new cart.
+
+This is source and local-test evidence only. Unit and component tests, the
+customer `web-foundations` Playwright cases (run against a production build
+with placeholder Firebase config) and phone-width screenshots pass. It has not
+been deployed, run against the development project, or accepted by the owner.
+Owner actions: redeploy `upsertStore` and Customer Web through the evidenced
+deploy wrapper, enable the Google provider and authorized domains, create the
+first consenting kitchen as a WhatsApp store in Admin Web, and import its menu.
+It does not change the Phase 5 status or overall progress.
 
 ## Dependency and cleanup state
 

@@ -22,6 +22,8 @@ interface CheckoutPanelProps {
   testRunId?: string;
   checkoutAllowed: boolean;
   onRequireAccount(): void;
+  /** Hide the heading, line list and clear button when the host screen shows them. */
+  hideLines?: boolean;
 }
 
 interface SelectedDeliveryAddress {
@@ -58,6 +60,7 @@ export function CheckoutPanel({
   testRunId,
   checkoutAllowed,
   onRequireAccount,
+  hideLines = false,
 }: CheckoutPanelProps) {
   const cart = useSyncExternalStore(
     cartStore.subscribe,
@@ -70,9 +73,7 @@ export function CheckoutPanel({
   const verifyPayment = useVerifyPaystackPayment(service);
   const orders = useCustomerOrders(service, customerId, { limit: 5 });
   const [query, setQuery] = useState("");
-  const [sessionToken, setSessionToken] = useState(
-    randomAddressSessionToken,
-  );
+  const [sessionToken, setSessionToken] = useState(randomAddressSessionToken);
   const [candidates, setCandidates] = useState<DeliveryAddressCandidate[]>([]);
   const [selection, setSelection] = useState<SelectedDeliveryAddress>();
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
@@ -113,12 +114,7 @@ export function CheckoutPanel({
         label.trim() || "Delivery address",
         instructions.trim(),
       ].join("|"),
-    [
-      instructions,
-      label,
-      lineSignature,
-      selection?.candidate.placeId,
-    ],
+    [instructions, label, lineSignature, selection?.candidate.placeId],
   );
   const quoteInputsChanged =
     quote !== undefined && quotedInputSignature !== quoteInputSignature;
@@ -138,7 +134,9 @@ export function CheckoutPanel({
     setSelection(undefined);
     setCandidates([]);
     setSessionToken(randomAddressSessionToken());
-    setNotice("Delivery details changed. Select the address again for a new quote.");
+    setNotice(
+      "Delivery details changed. Select the address again for a new quote.",
+    );
   }, [quoteInputsChanged]);
 
   useEffect(() => {
@@ -341,63 +339,69 @@ export function CheckoutPanel({
 
   return (
     <section className="checkout-panel" aria-label="Cart and checkout">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">One-store cart</p>
-          <h2>{cart.store?.name ?? "Your cart"}</h2>
+      {hideLines ? null : (
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">One-store cart</p>
+            <h2>{cart.store?.name ?? "Your cart"}</h2>
+          </div>
+          <strong>{formatMoney(provisionalSubtotal)}</strong>
         </div>
-        <strong>{formatMoney(provisionalSubtotal)}</strong>
-      </div>
+      )}
       {cart.lines.length === 0 ? (
         <p>Add an available menu item to begin checkout.</p>
       ) : (
         <>
-          <ul className="cart-lines">
-            {cart.lines.map((line) => (
-              <li key={line.itemId}>
-                <span>
-                  {line.name} · {formatMoney(line.unitPrice.amountMinor)}
-                </span>
-                <span className="quantity-actions">
-                  <button
-                    className="secondary compact"
-                    disabled={cartLocked}
-                    type="button"
-                    aria-label={`Decrease ${line.name}`}
-                    onClick={() =>
-                      cartStore
-                        .getState()
-                        .updateQuantity(line.itemId, line.quantity - 1)
-                    }
-                  >
-                    −
-                  </button>
-                  {line.quantity}
-                  <button
-                    className="secondary compact"
-                    disabled={cartLocked}
-                    type="button"
-                    aria-label={`Increase ${line.name}`}
-                    onClick={() =>
-                      cartStore
-                        .getState()
-                        .updateQuantity(line.itemId, line.quantity + 1)
-                    }
-                  >
-                    +
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
-          <button
-            className="text-button"
-            disabled={cartLocked}
-            type="button"
-            onClick={() => cartStore.getState().clear()}
-          >
-            Clear cart
-          </button>
+          {hideLines ? null : (
+            <>
+              <ul className="cart-lines">
+                {cart.lines.map((line) => (
+                  <li key={line.itemId}>
+                    <span>
+                      {line.name} · {formatMoney(line.unitPrice.amountMinor)}
+                    </span>
+                    <span className="quantity-actions">
+                      <button
+                        className="secondary compact"
+                        disabled={cartLocked}
+                        type="button"
+                        aria-label={`Decrease ${line.name}`}
+                        onClick={() =>
+                          cartStore
+                            .getState()
+                            .updateQuantity(line.itemId, line.quantity - 1)
+                        }
+                      >
+                        −
+                      </button>
+                      {line.quantity}
+                      <button
+                        className="secondary compact"
+                        disabled={cartLocked}
+                        type="button"
+                        aria-label={`Increase ${line.name}`}
+                        onClick={() =>
+                          cartStore
+                            .getState()
+                            .updateQuantity(line.itemId, line.quantity + 1)
+                        }
+                      >
+                        +
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                className="text-button"
+                disabled={cartLocked}
+                type="button"
+                onClick={() => cartStore.getState().clear()}
+              >
+                Clear cart
+              </button>
+            </>
+          )}
           {cartLocked ? (
             <p>
               Cart changes are paused until the pending payment is reconciled.
@@ -444,8 +448,7 @@ export function CheckoutPanel({
                   value={query}
                   onChange={(event) => {
                     setQuery(event.target.value);
-                    if (selection)
-                      setSessionToken(randomAddressSessionToken());
+                    if (selection) setSessionToken(randomAddressSessionToken());
                     setSelection(undefined);
                   }}
                   placeholder="Type at least 3 characters"

@@ -15,6 +15,7 @@
     "@spaceman/app-core": "workspace:*",
     "@spaceman/app-errors": "workspace:*",
     "@spaceman/app-firebase": "workspace:*",
+    "@spaceman/app-functions": "workspace:*",
     "@spaceman/app-maps": "workspace:*",
     "@spaceman/app-query": "workspace:*",
     "@spaceman/app-services": "workspace:*",

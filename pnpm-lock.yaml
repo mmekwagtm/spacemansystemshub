@@ -220,6 +220,9 @@ importers:
       '@spaceman/app-firebase':
         specifier: workspace:*
         version: link:../../packages/app-firebase
+      '@spaceman/app-functions':
+        specifier: workspace:*
+        version: link:../../packages/app-functions
       '@spaceman/app-maps':
         specifier: workspace:*
         version: link:../../packages/app-maps

@@ -4,10 +4,11 @@ import {
   createFirebaseAuthGateway,
   createFirebaseClient,
 } from "@spaceman/app-firebase";
+import { withGoogleWebSignIn } from "@spaceman/app-firebase/web-auth";
 import {
   createCheckoutService,
+  createCustomerIdentityService,
   createFirestoreRepositories,
-  createIdentityService,
   createMarketplaceService,
 } from "@spaceman/app-services";
 import { createCartStore } from "@spaceman/app-state";
@@ -20,8 +21,8 @@ const client = createFirebaseClient(
 const callable = createCallableGateway(client);
 const repositories = createFirestoreRepositories(client.firestore);
 
-export const customerIdentityService = createIdentityService(
-  createFirebaseAuthGateway(client),
+export const customerIdentityService = createCustomerIdentityService(
+  withGoogleWebSignIn(createFirebaseAuthGateway(client), client),
   callable,
 );
 export const customerMarketplaceService = createMarketplaceService(

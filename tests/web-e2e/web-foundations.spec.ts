@@ -41,21 +41,22 @@ test("customer web keeps active-catalog browse public and guards checkout", asyn
 }, testInfo) => {
   await page.goto("http://127.0.0.1:4175", { waitUntil: "domcontentloaded" });
   await expect(
-    page.getByRole("heading", { name: "Marketplace foundation" }),
+    page.getByRole("heading", { name: /Ready to order\?/ }),
   ).toBeVisible();
-  const marketplace = page.getByRole("region", {
-    name: "Active marketplace",
-  });
+  await expect(page.getByPlaceholder("Search restaurants")).toBeVisible();
   await expect(
-    marketplace.getByRole("heading", { name: "Browse active stores" }),
+    page.getByRole("heading", { name: /^Restaurants \(\d+\)$/ }),
   ).toBeVisible();
-  await expect(page.getByLabel("Search stores")).toBeVisible();
-  await page.getByRole("button", { name: "Continue to checkout" }).click();
+  await page.getByRole("link", { name: "Log in or sign up" }).click();
   await expect(
-    page.getByRole("heading", { name: "Sign in", exact: true }),
+    page.getByRole("heading", { name: "Log In", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Create customer account" }),
+    page.getByRole("button", { name: "Continue with Google" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Sign up" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Sign Up", exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("phase3-customer-marketplace.png"),
@@ -68,15 +69,17 @@ test("customer marketplace remains usable on a phone viewport", async ({
 }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("http://127.0.0.1:4175", { waitUntil: "domcontentloaded" });
-  const marketplace = page.getByRole("region", {
-    name: "Active marketplace",
-  });
   await expect(
-    marketplace.getByRole("heading", { name: "Browse active stores" }),
+    page.getByRole("heading", { name: /Ready to order\?/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Continue to checkout" }),
+    page.getByRole("link", { name: /Your order, \d+ items?/ }),
   ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
   await page.screenshot({
     path: testInfo.outputPath("phase3-customer-mobile.png"),
     fullPage: true,
